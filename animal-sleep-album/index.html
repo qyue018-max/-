@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>它们睡着的时候 · 彩铅动画画册</title>
+<style>
+  :root{
+    --paper:#fbf7ef;
+    --paper-edge:#e9dfcd;
+    --bg1:#f2ece1;
+    --bg2:#e3d9c7;
+    --ink:#3b352c;
+    --muted:#8b8071;
+    --accent:#b9773f;
+    --accent-soft:#d9a882;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:"PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+    color:var(--ink);
+    background:radial-gradient(120% 100% at 50% 0%, var(--bg1) 0%, var(--bg2) 100%);
+    display:flex;align-items:center;justify-content:center;
+    padding:28px 18px;overflow-x:hidden;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='.32'/></svg>");
+    mix-blend-mode:multiply;
+  }
+
+  .frame{width:100%;max-width:620px;position:relative;z-index:1}
+
+  header{text-align:center;margin-bottom:20px;position:relative}
+  h1{
+    font-family:"Songti SC","SimSun",Georgia,serif;
+    font-size:clamp(26px,5.2vw,38px);
+    font-weight:700;letter-spacing:.22em;margin:0 0 6px;text-indent:.22em;
+  }
+  .sub{margin:0;font-size:12px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+  .back{
+    position:absolute;right:0;top:2px;font-size:12px;color:var(--muted);
+    text-decoration:none;border:1px solid var(--paper-edge);
+    background:var(--paper);padding:6px 12px;border-radius:999px;
+    transition:.25s;letter-spacing:.08em;
+  }
+  .back:hover{color:var(--accent);border-color:var(--accent-soft)}
+
+  /* ---- form strip: same animal, different poses ---- */
+  .pose-strip{
+    display:flex;gap:8px;justify-content:center;align-items:center;
+    margin-bottom:14px;min-height:0;
+  }
+  .pose-strip.hidden{display:none}
+  .pose-strip .label{
+    font-size:11px;letter-spacing:.14em;color:var(--muted);margin-right:2px;
+  }
+  .pose-dot{
+    width:40px;height:40px;border-radius:7px;cursor:pointer;padding:0;
+    border:1px solid var(--paper-edge);background-size:cover;background-position:center;
+    opacity:.55;transition:.25s;position:relative;
+  }
+  .pose-dot:hover{opacity:1;transform:translateY(-2px)}
+  .pose-dot.active{opacity:1;border-color:var(--accent);box-shadow:0 0 0 2px rgba(185,119,63,.22)}
+  .pose-dot.active::after{
+    content:"";position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:var(--accent);
+  }
+
+  /* ---- album stage ---- */
+  .stage{position:relative;perspective:1500px}
+  .card{
+    background:var(--paper);
+    border:1px solid var(--paper-edge);
+    border-radius:6px 14px 14px 6px;
+    padding:22px 22px 18px;
+    box-shadow:
+      0 1px 0 #fff inset,
+      22px 26px 60px -18px rgba(70,55,35,.42),
+      0 2px 6px rgba(70,55,35,.10);
+    position:relative;transform-style:preserve-3d;will-change:transform,opacity;
+  }
+  .card::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:16px;
+    border-radius:6px 0 0 6px;
+    background:linear-gradient(90deg, rgba(120,100,70,.20), rgba(120,100,70,0) 70%);
+    pointer-events:none;
+  }
+  .illo-wrap{
+    margin:0;border-radius:8px;overflow:hidden;background:#f6f1e6;
+    box-shadow:0 1px 3px rgba(60,45,25,.12) inset;position:relative;
+  }
+  .illo-wrap img{
+    display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover;
+    animation:breathe 7.5s ease-in-out infinite;will-change:transform;
+  }
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.026)}}
+
+  figcaption{text-align:center;padding:16px 6px 2px}
+  .badges{display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .num{
+    font-size:11px;letter-spacing:.2em;color:var(--accent);
+    border:1px solid var(--accent-soft);border-radius:999px;padding:2px 10px;
+  }
+  .posetag{
+    font-size:11px;letter-spacing:.14em;color:#fff;background:var(--accent);
+    border-radius:999px;padding:2px 10px;
+  }
+  .posetag.hidden{display:none}
+  .name{
+    font-family:"Songti SC","SimSun",Georgia,serif;
+    font-size:clamp(20px,4.4vw,26px);margin:0 0 4px;letter-spacing:.14em;
+  }
+  .pose-name{font-size:12px;letter-spacing:.16em;color:var(--muted);margin:0 0 8px}
+  .note{margin:0;font-size:13px;color:var(--muted);letter-spacing:.1em;line-height:1.7}
+
+  .nav{
+    position:absolute;top:50%;transform:translateY(-50%);
+    width:46px;height:46px;border-radius:50%;
+    border:1px solid var(--paper-edge);background:rgba(251,247,239,.92);
+    color:var(--ink);font-size:26px;line-height:1;cursor:pointer;
+    box-shadow:0 6px 16px -6px rgba(70,55,35,.4);
+    transition:.25s;display:flex;align-items:center;justify-content:center;
+    backdrop-filter:blur(2px);
+  }
+  .nav:hover{background:#fff;color:var(--accent);border-color:var(--accent-soft);transform:translateY(-50%) scale(1.08)}
+  .nav.prev{left:-22px}
+  .nav.next{right:-22px}
+
+  footer{margin-top:24px}
+  .thumbs{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-bottom:16px}
+  .thumb{
+    width:38px;height:38px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--paper-edge);background-size:cover;background-position:center;
+    opacity:.62;transition:.25s;padding:0;overflow:hidden;
+  }
+  .thumb:hover{opacity:1;transform:translateY(-3px)}
+  .thumb.active{opacity:1;border-color:var(--accent);box-shadow:0 0 0 2px rgba(185,119,63,.22)}
+  .controls{display:flex;align-items:center;justify-content:center;gap:16px}
+  .pager{font-size:12px;letter-spacing:.16em;color:var(--muted);font-variant-numeric:tabular-nums}
+  .play{
+    font-family:inherit;font-size:12px;letter-spacing:.14em;cursor:pointer;
+    border:1px solid var(--paper-edge);background:var(--paper);color:var(--muted);
+    padding:8px 18px;border-radius:999px;transition:.25s;
+  }
+  .play:hover{border-color:var(--accent-soft);color:var(--accent)}
+  .play.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .head-actions{position:absolute;right:0;top:2px;display:flex;gap:8px;align-items:center}
+  .head-actions .back{position:static;cursor:pointer;font-family:inherit}
+  #gridBtn:hover{color:var(--accent);border-color:var(--accent-soft)}
+
+  .hidden{display:none !important}
+
+  /* ---- grid: see all at once ---- */
+  .grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));
+    gap:12px;margin:2px 0 6px;
+  }
+  .grid-item{
+    background:var(--paper);border:1px solid var(--paper-edge);border-radius:8px;
+    padding:8px;cursor:pointer;transition:.25s;text-align:center;
+    box-shadow:0 6px 18px -12px rgba(70,55,35,.5);
+  }
+  .grid-item:hover{
+    transform:translateY(-4px);border-color:var(--accent-soft);
+    box-shadow:0 16px 28px -14px rgba(70,55,35,.62);
+  }
+  .grid-item img{
+    width:100%;aspect-ratio:1/1;object-fit:cover;display:block;
+    border-radius:5px;background:#f6f1e6;
+  }
+  .grid-item .gi-name{
+    font-family:"Songti SC","SimSun",Georgia,serif;
+    font-size:13px;margin:8px 0 2px;letter-spacing:.1em;
+  }
+  .grid-item .gi-pose{font-size:11px;color:var(--muted);letter-spacing:.1em;margin:0}
+  .grid-item.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(185,119,63,.22)}
+
+  @media (max-width:640px){
+    .nav.prev{left:-6px}
+    .nav.next{right:-6px}
+    .card{padding:16px 16px 14px}
+    .thumb{width:32px;height:32px}
+    .pose-dot{width:36px;height:36px}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <h1>它们睡着的时候</h1>
+    <p class="sub">When They're Asleep · Colored-Pencil Forms</p>
+    <div class="head-actions">
+      <button class="back" id="gridBtn" type="button">通览全部</button>
+      <a class="back" href="../_demos/complete-shelf/index.html">返回书架</a>
+    </div>
+  </header>
+
+  <div class="pose-strip hidden" id="poseStrip">
+    <span class="label">这只的形态</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="card" id="card">
+      <figure class="illo-wrap"><img id="illo" src="" alt="动物形态插画"></figure>
+      <figcaption>
+        <div class="badges">
+          <span class="num" id="num">01</span>
+          <span class="posetag hidden" id="posetag">形态 1 / 5</span>
+        </div>
+        <h2 class="name" id="name"></h2>
+        <p class="pose-name" id="poseName"></p>
+        <p class="note" id="note"></p>
+      </figcaption>
+    </div>
+    <button class="nav prev" id="prev" aria-label="上一页">‹</button>
+    <button class="nav next" id="next" aria-label="下一页">›</button>
+  </div>
+
+  <div class="grid hidden" id="grid"></div>
+
+  <footer id="footerBar">
+    <div class="thumbs" id="thumbs"></div>
+    <div class="controls">
+      <span class="pager" id="pager">01 / 22</span>
+      <button class="play" id="play">自动翻页</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+const GROUPS = [
+  {name:"猫", poses:[
+    {f:"01-cat",        pn:"蜷成一团",      note:"午后的第一个姿势"},
+    {f:"19-cat-loaf",   pn:"趴成面包",      note:"下巴贴地，半眯着眼"},
+    {f:"20-cat-bellyup",pn:"肚皮朝天",      note:"睡得毫无防备"},
+    {f:"21-cat-sitdoze",pn:"坐着打盹",      note:"头一点一点，快撑不住了"},
+    {f:"22-cat-stretch",pn:"站起来伸懒腰",  note:"睡醒了，弓起背呼口气"}
+  ]},
+  {name:"柯基",   poses:[{f:"02-corgi",     pn:"四脚摊开",   note:"做个好梦"}]},
+  {name:"柴犬",   poses:[{f:"03-shiba",     pn:"仰躺翻肚",   note:"毫无防备"}]},
+  {name:"兔子",   poses:[{f:"04-rabbit",    pn:"埋脸团",     note:"把脸埋进毛里"}]},
+  {name:"北极熊", poses:[{f:"05-polarbear", pn:"俯卧抱爪",   note:"抱着爪子打个盹"}]},
+  {name:"刺猬",   poses:[{f:"06-hedgehog",  pn:"缩成刺球",   note:"留个小鼻子在外面"}]},
+  {name:"企鹅",   poses:[{f:"07-penguin",   pn:"单脚站睡",   note:"站着也能睡着"}]},
+  {name:"水獭",   poses:[{f:"08-otter",     pn:"仰浮水面",   note:"随波轻轻摇晃"}]},
+  {name:"狐狸",   poses:[{f:"09-fox",       pn:"大尾裹身",   note:"用尾巴当被子"}]},
+  {name:"羊",     poses:[{f:"10-sheep",     pn:"叠腿侧卧",   note:"安静地卧着"}]},
+  {name:"熊猫",   poses:[{f:"11-panda",     pn:"挂上树枝",   note:"摇摇晃晃"}]},
+  {name:"考拉",   poses:[{f:"12-koala",     pn:"抱着树干",   note:"说什么也不松手"}]},
+  {name:"松鼠",   poses:[{f:"13-squirrel",  pn:"尾巴盖身",   note:"把自己裹起来"}]},
+  {name:"小熊",   poses:[{f:"14-bear",      pn:"翻着肚皮",   note:"四肢摊开"}]},
+  {name:"猫头鹰", poses:[{f:"15-owl",       pn:"头埋翅里",   note:"站枝蹲守了一整天"}]},
+  {name:"海豹",   poses:[{f:"16-seal",      pn:"摊在冰面",   note:"整个身子贴着冰"}]},
+  {name:"天鹅",   poses:[{f:"17-swan",      pn:"曲颈浮水",   note:"埋进羽毛里"}]},
+  {name:"仓鼠",   poses:[{f:"18-hamster",   pn:"钻进棉花",   note:"只露一个鼻子"}]}
+];
+
+// flatten 成页码序列
+const FLAT = [];
+GROUPS.forEach(g => g.poses.forEach(p => FLAT.push({...p, group:g})));
+const N = FLAT.length;
+
+const card     = document.getElementById("card");
+const illo     = document.getElementById("illo");
+const numEl    = document.getElementById("num");
+const nameEl   = document.getElementById("name");
+const poseName = document.getElementById("poseName");
+const noteEl   = document.getElementById("note");
+const posetag  = document.getElementById("posetag");
+const poseStrip= document.getElementById("poseStrip");
+const pager    = document.getElementById("pager");
+const thumbsBox= document.getElementById("thumbs");
+const playBtn  = document.getElementById("play");
+
+let idx = 0, busy = false, timer = null;
+
+FLAT.forEach((d,i)=>{
+  const b = document.createElement("button");
+  b.className = "thumb";
+  b.title = `${d.group.name} · ${d.pn}`;
+  b.style.backgroundImage = `url("images/${d.f}.jpg")`;
+  b.addEventListener("click", ()=> goTo(i));
+  thumbsBox.appendChild(b);
+});
+const thumbs = [...thumbsBox.children];
+
+function buildPoseStrip(){
+  // 清掉旧的点（保留 label）
+  [...poseStrip.querySelectorAll(".pose-dot")].forEach(n=>n.remove());
+  const g = FLAT[idx].group;
+  if(g.poses.length < 2){ poseStrip.classList.add("hidden"); return; }
+  poseStrip.classList.remove("hidden");
+  g.poses.forEach((p, k)=>{
+    // flat index of this pose
+    const fi = FLAT.findIndex(x => x.group === g && x.f === p.f);
+    const d = document.createElement("button");
+    d.className = "pose-dot" + (fi === idx ? " active" : "");
+    d.title = p.pn;
+    d.style.backgroundImage = `url("images/${p.f}.jpg")`;
+    d.addEventListener("click", ()=> goTo(fi));
+    poseStrip.appendChild(d);
+  });
+}
+
+function paint(){
+  const d = FLAT[idx], g = d.group, k = g.poses.findIndex(p=>p.f===d.f);
+  illo.src = `images/${d.f}.jpg`;
+  illo.alt = `${g.name}的形态插画`;
+  numEl.textContent    = String(idx+1).padStart(2,"0");
+  nameEl.textContent   = g.name;
+  poseName.textContent = d.pn;
+  noteEl.textContent   = d.note;
+  pager.textContent    = `${String(idx+1).padStart(2,"0")} / ${String(N).padStart(2,"0")}`;
+  if(g.poses.length > 1){
+    posetag.classList.remove("hidden");
+    posetag.textContent = `形态 ${k+1} / ${g.poses.length}`;
+  }else{
+    posetag.classList.add("hidden");
+  }
+  thumbs.forEach((t,i)=> t.classList.toggle("active", i===idx));
+  buildPoseStrip();
+}
+
+function preload(i){
+  const d = FLAT[(i+N)%N];
+  const im = new Image();
+  im.src = `images/${d.f}.jpg`;
+}
+
+function turn(dir){
+  if(busy) return;
+  busy = true;
+  const outRot = dir>0 ? -26 : 26;
+  const outTx  = dir>0 ? -54 : 54;
+  card.style.transition = "transform .3s cubic-bezier(.4,0,1,1), opacity .3s ease-in";
+  card.style.opacity = "0";
+  card.style.transform = `perspective(1500px) rotateY(${outRot}deg) translateX(${outTx}px)`;
+  setTimeout(()=>{
+    idx = (idx + dir + N) % N;
+    paint();
+    preload(idx+1); preload(idx-1);
+    card.style.transform = `perspective(1500px) rotateY(${-outRot*0.85}deg) translateX(${-outTx*0.75}px)`;
+    requestAnimationFrame(()=>{
+      card.style.transition = "transform .5s cubic-bezier(.16,.84,.24,1), opacity .45s ease-out";
+      card.style.opacity = "1";
+      card.style.transform = "perspective(1500px) rotateY(0deg) translateX(0)";
+      setTimeout(()=>{ busy=false; }, 500);
+    });
+  }, 305);
+}
+
+function goTo(target){
+  if(busy || target === idx) return;
+  // 同一只动物 → 轻柔淡出切换（对照形态）；换动物 → 3D 翻页
+  if(FLAT[target].group === FLAT[idx].group){
+    busy = true;
+    card.style.transition = "opacity .32s ease";
+    card.style.opacity = "0";
+    setTimeout(()=>{
+      idx = target; paint(); preload(idx+1); preload(idx-1);
+      card.style.opacity = "1";
+      setTimeout(()=>{ busy = false; }, 340);
+    }, 330);
+  }else{
+    const dir = target > idx ? 1 : -1;
+    turn(dir);
+    idx = (target - dir + N) % N;
+  }
+}
+
+function setPlay(on){
+  if(on){
+    playBtn.classList.add("on");
+    playBtn.textContent = "暂停翻页";
+    timer = setInterval(()=> turn(1), 4200);
+  }else{
+    playBtn.classList.remove("on");
+    playBtn.textContent = "自动翻页";
+    clearInterval(timer); timer=null;
+  }
+}
+
+document.getElementById("prev").addEventListener("click", ()=> turn(-1));
+document.getElementById("next").addEventListener("click", ()=> turn(1));
+playBtn.addEventListener("click", ()=> setPlay(!timer));
+
+window.addEventListener("keydown", e=>{
+  if(e.key === "ArrowLeft"){ turn(-1); }
+  else if(e.key === "ArrowRight"){ turn(1); }
+  else if(e.key === " "){ e.preventDefault(); setPlay(!timer); }
+});
+
+let sx=0, sy=0;
+const stage = document.getElementById("stage");
+stage.addEventListener("touchstart", e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
+stage.addEventListener("touchend", e=>{
+  const dx = e.changedTouches[0].clientX - sx;
+  const dy = e.changedTouches[0].clientY - sy;
+  if(Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy)) turn(dx<0 ? 1 : -1);
+}, {passive:true});
+
+// ---- grid overview: all forms at once ----
+const grid = document.getElementById("grid");
+const gridBtn = document.getElementById("gridBtn");
+const footerBar = document.getElementById("footerBar");
+let gridMode = false;
+
+FLAT.forEach((d,i)=>{
+  const it = document.createElement("div");
+  it.className = "grid-item";
+  it.innerHTML =
+    `<img src="images/${d.f}.jpg" alt="${d.group.name} · ${d.pn}" loading="lazy">` +
+    `<p class="gi-name">${d.group.name}</p>` +
+    `<p class="gi-pose">${d.pn}</p>`;
+  it.addEventListener("click", ()=>{
+    if(gridMode) toggleGrid();
+    goTo(i);
+  });
+  grid.appendChild(it);
+});
+
+function toggleGrid(){
+  gridMode = !gridMode;
+  grid.classList.toggle("hidden", !gridMode);
+  stage.classList.toggle("hidden", gridMode);
+  footerBar.classList.toggle("hidden", gridMode);
+  if(gridMode){
+    poseStrip.classList.add("hidden");
+    [...grid.children].forEach((c,i)=> c.classList.toggle("active", i===idx));
+  }else{
+    paint();
+  }
+  gridBtn.textContent = gridMode ? "回到画册" : "通览全部";
+}
+gridBtn.addEventListener("click", toggleGrid);
+
+paint();
+preload(1); preload(N-1);
+
+// 支持 ?grid 直接进入通览视图
+if(location.search.indexOf('grid') >= 0) toggleGrid();
+</script>
+</body>
+</html>

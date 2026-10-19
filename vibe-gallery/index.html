@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>vibe coding · 第 11 卷</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+    color:#fdf6e6;
+    background:linear-gradient(180deg,#0e1430 0%,#1c2440 55%,#141b34 100%);
+    overflow-x:hidden;position:relative;
+  }
+  .stars{position:fixed;inset:0;pointer-events:none;z-index:0}
+
+  header{
+    position:relative;z-index:1;
+    padding:46px 30px 26px;
+    text-align:center;
+  }
+  .mark{
+    width:66px;height:66px;margin:0 auto 18px;border-radius:50%;
+    border:1px solid rgba(250,222,150,.5);
+    display:flex;align-items:center;justify-content:center;
+    font-size:26px;color:#faded0;
+    box-shadow:0 0 40px rgba(250,222,150,.18) inset;
+  }
+  h1{
+    font-family:"Segoe Script","Brush Script MT",Georgia,serif;
+    font-size:clamp(36px,7vw,56px);margin:0 0 10px;letter-spacing:.02em;
+    text-shadow:0 2px 18px rgba(0,0,0,.5);
+  }
+  .sub{margin:0;font-size:13px;letter-spacing:.22em;color:#b9c6e8}
+  .lead{
+    max-width:540px;margin:22px auto 0;font-size:14px;line-height:2;
+    letter-spacing:.05em;color:#cfd8f0;
+  }
+
+  .grid{
+    position:relative;z-index:1;
+    display:grid;gap:22px;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    max-width:1080px;margin:34px auto 70px;padding:0 26px;
+  }
+  .card{
+    background:rgba(253,246,230,.05);
+    border:1px solid rgba(250,222,150,.18);
+    border-radius:16px;overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:.25s;backdrop-filter:blur(2px);
+  }
+  .card:hover{
+    transform:translateY(-4px);
+    border-color:rgba(250,222,150,.45);
+    box-shadow:0 16px 40px rgba(0,0,0,.35);
+  }
+  .poster{
+    width:100%;aspect-ratio:16/10;object-fit:cover;display:block;
+    background:#0b1024;
+  }
+  .card-body{padding:16px 18px 20px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .card-title{font-size:19px;font-weight:600;letter-spacing:.02em}
+  .card-meta{font-size:12px;letter-spacing:.12em;color:#8fa4d8}
+  .card-desc{font-size:13px;line-height:1.8;color:#cfd8f0;margin:2px 0 0}
+  .open{
+    margin-top:auto;align-self:flex-start;cursor:pointer;
+    font-size:13px;letter-spacing:.14em;color:#0e1430;
+    background:#faded0;border:none;border-radius:999px;
+    padding:10px 22px;transition:.2s;
+  }
+  .open:hover{background:#fff;transform:translateY(-1px)}
+
+  /* 全屏游戏层 */
+  .stage{
+    position:fixed;inset:0;z-index:50;display:none;
+    background:#05070f;flex-direction:column;
+  }
+  .stage.on{display:flex}
+  .stage-bar{
+    display:flex;align-items:center;gap:14px;
+    padding:10px 16px;background:rgba(8,12,28,.92);
+    border-bottom:1px solid rgba(250,222,150,.2);
+    color:#fdf6e6;font-size:13px;letter-spacing:.08em;
+  }
+  .stage-bar .t{font-weight:600}
+  .stage-bar .m{color:#8fa4d8;font-size:12px}
+  .stage-bar .sp{flex:1}
+  .stage-bar a,.stage-bar button{
+    color:#cfe0ff;text-decoration:none;font-size:12px;letter-spacing:.1em;
+    border:1px solid rgba(143,164,216,.4);background:transparent;
+    border-radius:999px;padding:7px 16px;cursor:pointer;transition:.2s;
+  }
+  .stage-bar a:hover,.stage-bar button:hover{color:#fff;border-color:#fff}
+  .stage iframe{flex:1;width:100%;border:0;background:#000}
+</style>
+</head>
+<body>
+<svg class="stars" aria-hidden="true"><g id="s"></g></svg>
+
+<header>
+  <div class="mark">✧</div>
+  <h1>vibe coding</h1>
+  <p class="sub">第 11 卷 · TOON LIBRARY</p>
+  <p class="lead">
+    几行规则长出的世界 —— 这本书收录一些“随手 vibe 出来”的开源小作品，<br>
+    点开就能玩，全部本地运行，不依赖任何外网。
+  </p>
+</header>
+
+<main class="grid" id="grid"></main>
+
+<!-- 全屏游戏层 -->
+<div class="stage" id="stage">
+  <div class="stage-bar">
+    <span class="t" id="stageTitle"></span>
+    <span class="m" id="stageMeta"></span>
+    <span class="sp"></span>
+    <a id="stageRepo" target="_blank" rel="noopener">原仓库 ↗</a>
+    <a id="stageNew" target="_blank" rel="noopener">新标签打开 ▸</a>
+    <button id="stageClose">关闭 ✕</button>
+  </div>
+  <iframe id="stageFrame" title="project" sandbox="allow-scripts allow-same-origin"></iframe>
+</div>
+
+<script>
+  // 已收录的开源项目（以后加新项目，往这里加一项即可）
+  const PROJECTS = [
+    {
+      key: "bongocat",
+      title: "Bongo Cat",
+      author: "Externalizable · 虚拟宠物",
+      desc: "一只跟着你键盘打鼓的小猫：A/D 敲邦戈鼓、C 踩镲、F 牛铃、SPACE 喵～ 治愈系陪伴玩具。",
+      repo: "https://github.com/Externalizable/bongo.cat",
+      poster: "projects/bongocat/poster.png",
+      src: "projects/bongocat/index.html"
+    },
+    {
+      key: "uji",
+      title: "uji",
+      author: "Noah Doersing · 生成艺术",
+      desc: "按按钮、拖滑块，让极简线条自己长成几何画。安静、不闹，越看越入神。",
+      repo: "https://github.com/doersino/uji",
+      poster: "projects/uji/poster.png",
+      src: "projects/uji/index.html"
+    },
+    {
+      key: "multiavatar",
+      title: "Multiavatar",
+      author: "Gie Katon · 头像生成器",
+      desc: "输入任意字符生成多文化 SVG 头像，120 亿种组合，一键换新、可导出 PNG。",
+      repo: "https://github.com/multiavatar/Multiavatar",
+      poster: "projects/multiavatar/poster.png",
+      src: "projects/multiavatar/demo.html",
+      bg: "#fff"
+    },
+    {
+      key: "spacehuggers",
+      title: "SpaceHuggers",
+      author: "Frank Force · js13k 2021",
+      desc: "rogue 风格平台跳跃：紫色山丘、可破坏地形、15 个随机生成关卡。键盘移动跳跃，鼠标射击打敌人、炸地形。",
+      repo: "https://github.com/KilledByAPixel/SpaceHuggers",
+      poster: "projects/spacehuggers/poster.png",
+      src: "projects/spacehuggers/index.html"
+    }
+  ];
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = PROJECTS.map((p,i)=>`
+    <article class="card">
+      <img class="poster" src="${p.poster}" alt="${p.title}">
+      <div class="card-body">
+        <div class="card-title">${p.title}</div>
+        <div class="card-meta">${p.author}</div>
+        <p class="card-desc">${p.desc}</p>
+        <button class="open" data-i="${i}">▶ 打开</button>
+      </div>
+    </article>`).join("");
+
+  const stage = document.getElementById("stage");
+  const frame = document.getElementById("stageFrame");
+  const stageTitle = document.getElementById("stageTitle");
+  const stageMeta = document.getElementById("stageMeta");
+  const stageRepo = document.getElementById("stageRepo");
+  const stageNew = document.getElementById("stageNew");
+
+  function openProject(p){
+    stageTitle.textContent = p.title;
+    stageMeta.textContent = p.author;
+    stageRepo.href = p.repo;
+    stageNew.href = p.src;
+    frame.style.background = p.bg || "#000";
+    frame.src = p.src;
+    stage.classList.add("on");
+  }
+  function closeStage(){
+    stage.classList.remove("on");
+    frame.style.background = "#000";
+    frame.src = "about:blank"; // 释放画布
+  }
+  grid.querySelectorAll(".open").forEach(b=>{
+    b.addEventListener("click",()=>openProject(PROJECTS[+b.dataset.i]));
+  });
+  document.getElementById("stageClose").addEventListener("click",closeStage);
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeStage(); });
+
+  // 随手撒一把星星
+  const g = document.getElementById("s");
+  let out = "";
+  const cols = ["#ebeffa","#faf0c8","#c8d6fa"];
+  for (let i=0;i<70;i+=1){
+    const x=(Math.random()*100).toFixed(2), y=(Math.random()*100).toFixed(2);
+    const r=(Math.random()*1.6+0.5).toFixed(2);
+    const c=cols[Math.floor(Math.random()*cols.length)];
+    const o=(Math.random()*0.6+0.25).toFixed(2);
+    out+=`<circle cx="${x}%" cy="${y}%" r="${r}" fill="${c}" opacity="${o}"/>`;
+  }
+  g.innerHTML = out;
+</script>
+</body>
+</html>

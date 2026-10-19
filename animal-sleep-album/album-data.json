@@ -1,0 +1,110 @@
+[
+  {
+    "num": "01",
+    "key": "cat",
+    "name": "猫",
+    "note": "蜷成一团的午后"
+  },
+  {
+    "num": "02",
+    "key": "corgi",
+    "name": "柯基",
+    "note": "四脚摊开，做个好梦"
+  },
+  {
+    "num": "03",
+    "key": "shiba",
+    "name": "柴犬",
+    "note": "肚皮朝天，毫无防备"
+  },
+  {
+    "num": "04",
+    "key": "rabbit",
+    "name": "兔子",
+    "note": "把脸埋进毛里"
+  },
+  {
+    "num": "05",
+    "key": "polarbear",
+    "name": "北极熊",
+    "note": "抱着爪子打个盹"
+  },
+  {
+    "num": "06",
+    "key": "hedgehog",
+    "name": "刺猬",
+    "note": "缩成一个小刺球"
+  },
+  {
+    "num": "07",
+    "key": "penguin",
+    "name": "企鹅",
+    "note": "单脚站着也能睡着"
+  },
+  {
+    "num": "08",
+    "key": "otter",
+    "name": "水獭",
+    "note": "仰在水面上，随波摇晃"
+  },
+  {
+    "num": "09",
+    "key": "fox",
+    "name": "狐狸",
+    "note": "用大尾巴把自己裹起来"
+  },
+  {
+    "num": "10",
+    "key": "sheep",
+    "name": "羊",
+    "note": "叠着腿，安静侧卧"
+  },
+  {
+    "num": "11",
+    "key": "panda",
+    "name": "熊猫",
+    "note": "挂在树枝上摇摇晃晃"
+  },
+  {
+    "num": "12",
+    "key": "koala",
+    "name": "考拉",
+    "note": "抱着树干，说什么也不松手"
+  },
+  {
+    "num": "13",
+    "key": "squirrel",
+    "name": "松鼠",
+    "note": "用大尾巴盖住自己"
+  },
+  {
+    "num": "14",
+    "key": "bear",
+    "name": "小熊",
+    "note": "翻着肚皮，四肢摊开"
+  },
+  {
+    "num": "15",
+    "key": "owl",
+    "name": "猫头鹰",
+    "note": "头埋进翅膀里"
+  },
+  {
+    "num": "16",
+    "key": "seal",
+    "name": "海豹",
+    "note": "整个摊在冰面上"
+  },
+  {
+    "num": "17",
+    "key": "swan",
+    "name": "天鹅",
+    "note": "把颈子弯成 S，埋进羽毛"
+  },
+  {
+    "num": "18",
+    "key": "hamster",
+    "name": "仓鼠",
+    "note": "钻进棉花深处"
+  }
+]

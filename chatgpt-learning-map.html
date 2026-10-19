@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ChatGPT 与大模型学习地图 · 从零到进阶</title>
+<style>
+  :root{
+    --ink:#1f2430; --ink-soft:#5a6473; --line:#e8ebf1;
+    --bg:#f5f7fb; --card:#ffffff; --accent:#3b5bdb; --accent-soft:#eef2ff;
+    --amber:#e8a33d; --teal:#15a08a; --rose:#e0567a;
+    --shadow:0 10px 30px rgba(31,36,48,.08);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:var(--ink); background:var(--bg); line-height:1.7; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 20px 80px;}
+  header.hero{
+    background:linear-gradient(135deg,#2b3a8f 0%,#3b5bdb 55%,#4f7bf0 100%);
+    color:#fff; padding:54px 20px 90px; text-align:center; position:relative; overflow:hidden;
+  }
+  header.hero::after{
+    content:""; position:absolute; left:-10%; right:-10%; bottom:-60px; height:120px;
+    background:radial-gradient(closest-side, rgba(255,255,255,.18), transparent);
+  }
+  header.hero h1{font-size:30px; margin:0 0 12px; letter-spacing:.5px; font-weight:800;}
+  header.hero p{margin:0 auto; max-width:640px; opacity:.92; font-size:15px;}
+  .badge{display:inline-block; margin-top:18px; padding:6px 14px; border:1px solid rgba(255,255,255,.5);
+    border-radius:999px; font-size:13px; opacity:.95;}
+  /* roadmap */
+  .roadmap{
+    position:relative; margin:-54px auto 36px; max-width:920px; background:var(--card);
+    border-radius:18px; box-shadow:var(--shadow); padding:26px 22px;
+  }
+  .roadmap h2{margin:0 0 18px; font-size:16px; color:var(--ink-soft); font-weight:700;}
+  .stops{display:flex; gap:6px; flex-wrap:wrap; justify-content:space-between;}
+  .stop{flex:1 1 0; min-width:110px; text-align:center; cursor:pointer; padding:8px 4px; border-radius:12px; transition:.2s;}
+  .stop:hover{background:var(--accent-soft);}
+  .stop .num{width:34px;height:34px;line-height:34px;margin:0 auto 7px;border-radius:50%;
+    background:var(--accent); color:#fff; font-weight:800; font-size:15px;}
+  .stop .nm{font-size:12.5px; color:var(--ink); font-weight:600; line-height:1.35;}
+  .stop .st{font-size:11px; color:var(--ink-soft);}
+  .stop.alt .num{background:var(--teal);}
+  /* cards */
+  .card{
+    background:var(--card); border-radius:16px; box-shadow:var(--shadow); margin-bottom:18px; overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .card-head{display:flex; align-items:center; gap:14px; padding:18px 20px; cursor:pointer; user-select:none;}
+  .lv{width:46px;height:46px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:800;font-size:18px;background:var(--accent);}
+  .lv.t{background:var(--teal);} .lv.a{background:var(--amber);} .lv.r{background:var(--rose);}
+  .card-head .tt{flex:1;}
+  .card-head .tt h3{margin:0; font-size:17px; font-weight:800;}
+  .card-head .tt .sub{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+  .stars{color:var(--amber); font-size:13px; letter-spacing:1px; white-space:nowrap;}
+  .chev{transition:.25s; color:var(--ink-soft); font-size:20px;}
+  .card.open .chev{transform:rotate(180deg);}
+  .body{max-height:0; overflow:hidden; transition:max-height .4s ease;}
+  .card.open .body{max-height:2600px;}
+  .inner{padding:4px 22px 24px; border-top:1px solid var(--line);}
+  .blk{margin-top:18px;}
+  .blk .lbl{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:var(--accent);
+    background:var(--accent-soft);padding:4px 10px;border-radius:8px;margin-bottom:8px;}
+  .blk.pro .lbl{color:var(--teal); background:#e7f7f3;}
+  .blk.ex .lbl{color:var(--amber); background:#fdf2e0;}
+  .blk.res .lbl{color:var(--rose); background:#fdeaf0;}
+  .blk p{margin:6px 0; font-size:14.5px;}
+  ul.clean{margin:6px 0; padding-left:0; list-style:none;}
+  ul.clean li{position:relative; padding:5px 0 5px 22px; font-size:14.5px;}
+  ul.clean li::before{content:"▹"; position:absolute; left:4px; color:var(--accent); font-weight:700;}
+  .blk.pro ul.clean li::before{color:var(--teal);}
+  .blk.ex ul.clean li::before{color:var(--amber);}
+  code{background:#f1f3f8; padding:1px 6px; border-radius:5px; font-size:13px; color:#364fc7;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  .tip{background:#fff8ec;border-left:4px solid var(--amber);padding:11px 14px;border-radius:8px;font-size:13.5px;color:#7a5a1c;margin-top:10px;}
+  .links a{color:var(--accent);text-decoration:none;border-bottom:1px dashed var(--accent);}
+  .links a:hover{opacity:.7;}
+  .resources{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:24px 22px;border:1px solid var(--line);}
+  .resources h2{margin:0 0 6px;font-size:19px;}
+  .res-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;}
+  .res{background:var(--bg);border-radius:12px;padding:14px 16px;}
+  .res h4{margin:0 0 4px;font-size:14.5px;}
+  .res p{margin:0;font-size:13px;color:var(--ink-soft);}
+  .res a{font-size:13px;word-break:break-all;}
+  footer{text-align:center;color:var(--ink-soft);font-size:12.5px;margin-top:34px;}
+  @media(max-width:640px){.res-grid{grid-template-columns:1fr;}.stop{min-width:84px;}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>ChatGPT 与大模型学习地图</h1>
+  <p>从「完全没用过」到「懂原理能进阶」的一条路。下面按<b>由浅入深</b>排成 7 级，每级都先讲大白话，再给专业版和资源。</p>
+  <span class="badge">给新手 · 2026 年 10 月整理 · 含提示词工程 / RAG / Agents / MCP / ToT 思维树 / 微调</span>
+</header>
+
+<div class="wrap">
+  <div class="roadmap">
+    <h2>🧭 七级难度路线图（点击任意一级直达）</h2>
+    <div class="stops" id="stops">
+      <div class="stop" data-i="0"><div class="num">1</div><div class="nm">认识 ChatGPT</div><div class="st">入门 ★</div></div>
+      <div class="stop" data-i="1"><div class="num">2</div><div class="nm">写提示词</div><div class="st">上手 ★★</div></div>
+      <div class="stop alt" data-i="2"><div class="num">3</div><div class="nm">提示词进阶</div><div class="st">★★★</div></div>
+      <div class="stop alt" data-i="3"><div class="num">4</div><div class="nm">知识库 RAG</div><div class="st">★★★</div></div>
+      <div class="stop alt" data-i="4"><div class="num">5</div><div class="nm">智能体 & MCP</div><div class="st">★★★★</div></div>
+      <div class="stop a" data-i="5"><div class="num">6</div><div class="nm">ToT 思维树</div><div class="st">★★★★</div></div>
+      <div class="stop r" data-i="6"><div class="num">7</div><div class="nm">微调与原理</div><div class="st">★★★★★</div></div>
+    </div>
+  </div>
+
+  <!-- L1 -->
+  <div class="card" id="c0">
+    <div class="card-head"><div class="lv">1</div><div class="tt"><h3>先认识 ChatGPT：它到底是什么</h3><div class="sub">入门级 · 搞清「这是什么东西、能帮我干嘛、有啥坑」</div></div><div class="stars">★</div><div class="chev">▾</div></div>
+    <div class="body"><div class="inner">
+      <div class="blk"><span class="lbl">🗣️ 大白话</span>
+        <p><b>ChatGPT 就是 OpenAI 公司做的一个「全能对话助理」。</b>你用日常说话的方式跟它聊，它就能回答问题、写文章、翻译、改代码、看图、听你说话、上网查资料。到 2026 年，它背后跑的是 <b>GPT-5 系列</b>（默认主力叫 GPT-5.5），比早期版本强很多。</p>
+        <p>打个比方：像你雇了一个「什么都能搭把手」的助理——写邮件、改合同、规划行程、陪练外语它都行。它不累、不嫌烦，你给得越清楚，它还得越好。</p>
+        <p><b>它能做这些事：</b></p>
+        <ul class="clean">
+          <li>写作改写：邮件、帖子、报告、润色</li>
+          <li>深度研究（Deep Research）：跨多个网站查资料，整理成带引用的报告</li>
+          <li>看图/读文件：丢一张图、一份 Excel、一份 PDF，让它解读</li>
+          <li>语音对话、会议录音转摘要</li>
+          <li>数据分析、做图表；自订 GPT（把常用指令存成专属助理）</li>
+          <li>生成图片、生成视频（Sora）</li>
+        </ul>
+        <p><b>三个坑要先知道：</b>①它会「编」——没依据时也会说得像真的（这叫<b>幻觉</b>），重要信息要自己核对；②别把密码、隐私往里塞；③它一次对话能记住的内容有限（<b>上下文窗口</b>），聊太久会忘前面的。</p>
+      </div>
+      <div class="blk pro"><span class="lbl">🔧 专业版</span>
+        <p>ChatGPT 建立在 <b>大语言模型（LLM）</b> 上：它读过海量文本（书、网页、代码、对话），学到的是「语言规律」而非死记硬背——本质是<b>预测下一个最合理的词</b>。2026 年的 GPT-5.5 其实是一组「强度分级」：</p>
+        <ul class="clean">
+          <li><b>Instant</b>：默认档，快，适合日常对话、写作、翻译、查资料</li>
+          <li><b>Thinking</b>：先「想一轮」再答，适合数学、debug、长文分析</li>
+          <li><b>Pro</b>：牺牲速度换最高准度，适合法律/财务等不能出错的高风险场景</li>
+        </ul>
+        <p>架构上 GPT-5 用 <b>MoE（混合专家）</b>，上下文窗口可达约 100 万 token。付费档：Plus 约 $25/月（GPT-5、图像、视频 Beta），Team/Enterprise 另有协作与隐私保障。统计上约 49% 的人用它「问问题」、40%「干活」、11% 探索创作。</p>
+      </div>
+      <div class="blk ex"><span class="lbl">✏️ 新手小练习</span>
+        <ul class="clean">
+          <li>去 chat.openai.com 用邮箱或 Google 注册一个免费号</li>
+          <li>试着让它「把下面这段话改得更客气：……」</li>
+          <li>再问它「用三点总结什么是大模型」——感受它怎么答</li>
+        </ul>
+      </div>
+      <div class="blk res"><span class="lbl">🔗 资源</span>
+        <p class="links"><a href="https://openai.com/academy/" target="_blank" rel="noopener">OpenAI Academy（官方免费课，覆盖入门到工作流）</a> · 科普中国《AI 黑话》系列 <a href="https://www.kepuchina.cn/" target="_blank" rel="noopener">kepuchina.cn</a></p>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- L2 -->
+  <div class="card" id="c1">
+    <div class="card-head"><div class="lv">2</div><div class="tt"><h3>学会写提示词：让 AI 真的听懂你</h3><div class="sub">上手级 · 性价比最高的一课，职场人最该先掌握</div></div><div class="stars">★★</div><div class="chev">▾</div></div>
+    <div class="body"><div class="inner">
+      <div class="blk"><span class="lbl">🗣️ 大白话</span>
+        <p><b>提示词（Prompt）就是你跟 AI 说的那句话 / 那段指令。</b>很多人用不好，是因为只丢一句「帮我写个方案」——太模糊，AI 只能瞎猜。写好提示词，核心就五样东西（记不住就照着填空）：</p>
+        <ul class="clean">
+          <li><b>角色</b>：你希望它当什么人？「你是一位 10 年经验的市场总监」</li>
+          <li><b>任务</b>：具体要它做什么？「写一条小红书口红种草文案」</li>
+          <li><b>背景</b>：相关信息给一点：「产品是平价国货、受众学生党」</li>
+          <li><b>约束</b>：不要什么也写清：「别用『绝绝子』这类词、控制在 80 字内」</li>
+          <li><b>输出格式</b>：想要什么样子？「用表格列出 3 个卖点」</li>
+        </ul>
+        <p>两个立刻见效的小技巧：①<b>给例子</b>——你先示范 1~3 个你想要的写法，它学得飞快；②<b>说清「给谁看、多深」</b>——「写给不懂技术的总监看」比「写详细点」有用得多。</p>
+      </div>
+      <div class="blk pro"><span class="lbl">🔧 专业版</span>
+        <p>这套方法对应提示词工程的经典框架（如 LangGPT）：把一条提示拆成 <b>角色 / 任务 / 背景 / 约束 / 输出格式</b> 模块。研究数据：</p>
+        <ul class="clean">
+          <li><b>Role Prompting（角色提示）</b>：明确身份后输出质量通常提升 10–30%</li>
+          <li><b>Few-shot（少样本）</b>：给 2–5 个输入/输出示例，比不给示例强 10–40%，尤其适合分类、抽取、格式严格输出</li>
+          <li><b>负面约束</b>：直接说「不要做 X」比含蓄期待更可靠</li>
+          <li><b>质量信号</b>：写明受众、语气、阅读年级、是否要发表——模型会据此校准用力程度</li>
+        </ul>
+        <div class="tip">💡 反模式：别加一堆「你真聪明、这问题问得好」之类寒暄（反而降准）；别在系统提示里堆 30+ 条指令（模型会忽略后面的）；提示词不是越长越好，超过 ~500 词常适得其反。</div>
+      </div>
+      <div class="blk ex"><span class="lbl">✏️ 新手小练习</span>
+        <ul class="clean">
+          <li>用上面五要素写一条提示，让 AI 帮你写「周末约朋友吃饭」的邀约消息</li>
+          <li>再给 2 个你喜欢的邀约例子，看它是否更贴近你的风格</li>
+          <li>对比「随便写」和「结构化写」两次结果，体会差别</li>
+        </ul>
+      </div>
+      <div class="blk res"><span class="lbl">🔗 资源</span>
+        <p class="links">网易《零基础 AI 分步学习规划》· OpenAI Academy 的「Prompt 技巧」系列 · 李宏毅老师 GenAI 课（中文，讲底层最透）</p>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- L3 -->
+  <div class="card" id="c2">
+    <div class="card-head"><div class="lv t">3</div><div class="tt"><h3>提示词进阶：让结果更靠谱、可复用</h3><div class="sub">进阶级 · 复杂任务不出错的关键技巧</div></div><div class="stars">★★★</div><div class="chev">▾</div></div>
+    <div class="body"><div class="inner">
+      <div class="blk"><span class="lbl">🗣️ 大白话</span>
+        <p>当你发现「一次问完总出错」，就该上这几招：</p>
+        <ul class="clean">
+          <li><b>让它一步步想（思维链）</b>：加一句「先一步一步推理再给答案」。算数、逻辑、分析类问题立刻更准。</li>
+          <li><b>锁死格式</b>：要表格就说「用 Markdown 表格」；要机器能读就说「只输出 JSON」。这样它不乱发挥，你也好处理。</li>
+          <li><b>大任务拆小</b>：别把「调研+写报告+做PPT」塞一句话，分成几步，一步步来，错了好改。</li>
+          <li><b>要它「拿依据说话」</b>：涉及事实就说「注明出处 / 引用原文第几节」，能大幅减少瞎编。</li>
+          <li><b>反复改，别重来</b>：结果不对，就补条件、纠方向，而不是每次从头问。</li>
+        </ul>
+      </div>
+      <div class="blk pro"><span class="lbl">🔧 专业版</span>
+        <ul class="clean">
+          <li><b>Chain-of-Thought (CoT)</b>：「Let's think step by step」让模型显式推理，数学/逻辑任务准确率显著提升（如 GSM8K 从 ~50% 到 80%+）。⚠️ 但 2026 年的<b>推理模型</b>（o1/o3、Claude 扩展思考、Gemini 思考模式）<b>已内置 CoT</b>——对它们手写 CoT 有时反而多余，简单点让模型自己想更好。</li>
+          <li><b>Structured Output</b>：JSON Schema / XML 标签，GPT-5 与 Claude 原生支持，解析错误可降 ~90%。</li>
+          <li><b>Prompt Chaining（提示词链）</b>：A 步解析 → B 步起草 → C 步审校，是小步可控、好调试的默认架构（LangGraph / OpenAI Agents 都这样）。</li>
+          <li><b>Reference Grounding</b>：要求引用附带的文档，幻觉可压到 1% 以下。</li>
+          <li><b>把提示当代码</b>：版本化、建 20+ 条测试集打分、做对抗测试（乱码/矛盾/注入），靠「评估」迭代而非「感觉」。温度：事实/代码用 0–0.3，创意用 0.7–0.9。</li>
+        </ul>
+        <div class="tip">💡 工程界共识：提示词工程已从「小技巧」变成「可复现的纪律」。绝大多数生产场景，CoT + 少样本 + 格式锁定 三件套就够了。</div>
+      </div>
+      <div class="blk ex"><span class="lbl">✏️ 新手小练习</span>
+        <ul class="clean">
+          <li>让 AI 算「27×14」，分别用「直接问」和「一步步想」对比</li>
+          <li>让它「把这段话转成 JSON，字段含 sentiment 和 confidence」，看格式是否干净</li>
+        </ul>
+      </div>
+      <div class="blk res"><span class="lbl">🔗 资源</span>
+        <p class="links"><a href="https://en.ai-pedias.com/blog/ai-prompt-engineering-techniques-2026" target="_blank" rel="noopener">Prompt Engineering 2026: 12 Techniques</a> · <a href="https://promptarch.ai/blog/prompt-engineering-best-practices-2026" target="_blank" rel="noopener">PromptArch 最佳实践</a></p>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- L4 -->
+  <div class="card" id="c3">
+    <div class="card-head"><div class="lv t">4</div><div class="tt"><h3>给 AI 配个「资料室」：RAG 知识库</h3><div class="sub">进阶级 · 让 AI 基于「你的资料」答，而不是凭记忆编</div></div><div class="stars">★★★</div><div class="chev">▾</div></div>
+    <div class="body"><div class="inner">
+      <div class="blk"><span class="lbl">🗣️ 大白话</span>
+        <p><b>RAG（检索增强生成）= 先查资料，再作答。</b>大模型像个聪明但没带参考书的考生：不查就答容易瞎编（幻觉）。RAG 就是往它手边放一摞资料，答题前先翻、找依据，再组织语言——等于<b>开卷考试</b>。</p>
+        <p>流程就三步：①<b>检索</b>：你提问，系统去资料里找最相关的几段；②<b>增强</b>：把找到的内容拼进你的问题里；③<b>生成</b>：AI 看着这些资料写答案，还能附出处。</p>
+        <p><b>「知识库」就是 AI 的专属资料室</b>：公司制度、产品手册、你的笔记都能放进去。ChatGPT 里「上传文件后提问」背后就是 RAG。</p>
+        <p>用途：企业知识库问答、客服机器人、法律/医疗等「必须有凭有据」的场景、用 AI 搜网页（Perplexity 本质也是 RAG）。</p>
+      </div>
+      <div class="blk pro"><span class="lbl">🔧 专业版</span>
+        <ul class="clean">
+          <li><b>向量 / Embedding</b>：系统把文字语义转成一串数字，语义越近数字越近——所以<b>比的是「意思」不是「字面」</b>，你用词不同也能被找到。这是 RAG 和传统关键词搜索最大的区别。</li>
+          <li>RAG <b>不是新模型、不是重训练</b>，而是一套「架构/做法」：检索系统 + 现成生成模型组合，可换不同 LLM。</li>
+          <li>RAG <b>大幅降低但不能保证零幻觉</b>：检索到的资料本身错、或模型误读，仍可能出错。</li>
+          <li><b>小白判断准则</b>：文档在 ~20 万 token（约 15 万字）以内，直接把原文贴进对话 + 清楚分隔符即可，<b>不必上 RAG</b>；RAG 是为「规模大 / 要常更新」准备的。</li>
+        </ul>
+      </div>
+      <div class="blk ex"><span class="lbl">✏️ 新手小练习</span>
+        <ul class="clean">
+          <li>在 ChatGPT 上传一份你的 PDF/Word，问「第几页讲了 XX？」感受 RAG</li>
+          <li>故意问资料里没有的内容，看它会不会老实说「找不到」</li>
+        </ul>
+      </div>
+      <div class="blk res"><span class="lbl">🔗 资源</span>
+        <p class="links">科普中国《大模型为什么要「先查再答」》· <a href="https://sec-site.com/wiki-retrieval-augmented-generation" target="_blank" rel="noopener">RAG 新手入门</a> · 火山引擎《大模型入门宝典》</p>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- L5 -->
+  <div class="card" id="c4">
+    <div class="card-head"><div class="lv t">5</div><div class="tt"><h3>让 AI 真正去干活：智能体（Agent）与 MCP</h3><div class="sub">高手级 · 从「聊天」到「动手」，连接你的真实工具</div></div><div class="stars">★★★★</div><div class="chev">▾</div></div>
+    <div class="body"><div class="inner">
+      <div class="blk"><span class="lbl">🗣️ 大白话</span>
+        <p><b>智能体（Agent）= 会自己规划、调工具、多步完成任务的 AI。</b>普通 ChatGPT 是「你问它答」，Agent 是「你给目标，它自己拆步骤、查天气、发邮件、填表」——从陪聊变成「能干活的人」。</p>
+        <p><b>MCP（模型上下文协议）</b>解决一个现实麻烦：每接一个工具（日历、网盘、数据库）都要单独写一套对接代码，N 个 AI × M 个工具 = 一堆乱麻。MCP 就像 <b>AI 界的 USB-C 接口</b>：定一个统一标准，每个工具做一个「服务器」，任何懂 MCP 的 AI 都能直接插上用。</p>
+        <p>打个比方：以前每个设备各一根充电线，乱；出了 USB-C，一根线通吃。MCP 对 AI 和外接工具，就是这事。</p>
+      </div>
+      <div class="blk pro"><span class="lbl">🔧 专业版</span>
+        <ul class="clean">
+          <li><b>MCP 是谁、何时</b>：Anthropic 2024-11 提出、2025-12 捐给 Linux 基金会的<b>开放标准</b>（不归任何一家私有）。OpenAI、Google、Microsoft、AWS、Salesforce 均已采用；公开 MCP 服务器已超 1 万个，月 SDK 下载约 9700 万。</li>
+          <li><b>三角色</b>：<b>Host</b>（你用的 AI 应用，如 Claude、ChatGPT）→ <b>Client</b>（住在 Host 里管协议）→ <b>Server</b>（封装具体工具：GitHub、Google Drive、Slack、Postgres…）。把 N×M 集成问题压成 N+M。</li>
+          <li><b>三种能力原语</b>：<code>tools</code>（动作，如发消息）、<code>resources</code>（数据，如读表格）、<code>prompts</code>（提示模板）。</li>
+          <li><b>ReAct 模式</b>：Thought→Action→Observation 循环，是 Agent 调用工具的基础范式（LangChain/LangGraph、Anthropic Tool Use 都基于此）。</li>
+          <li><b>Function Calling（函数调用）</b>：模型输出「我要调哪个工具、传什么参数」，由程序执行后把结果喂回——Agent 动手的底层机制。</li>
+        </ul>
+        <div class="tip">💡 对小白：你不用懂代码也能获益——很多现成 AI 工具已经内置 MCP，你只要在设置里「连一下」Google 日历 / 网盘，AI 就能真去读、真去发。</div>
+      </div>
+      <div class="blk ex"><span class="lbl">✏️ 新手小练习</span>
+        <ul class="clean">
+          <li>在支持 MCP 的客户端（如 Cursor、Claude）里连一个网盘 MCP，让 AI 读你指定的文件</li>
+          <li>试着下指令：「把 Airtable 最近 3 条线索总结，起草跟进邮件」看 Agent 怎么串工具</li>
+        </ul>
+      </div>
+      <div class="blk res"><span class="lbl">🔗 资源</span>
+        <p class="links"><a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">Model Context Protocol 官网</a> · 科普中国《MCP 如何让 AI 连上外部服务》· <a href="https://www.silverthreadlabs.com/zh-Hans/blog/what-is-mcp-model-context-protocol" target="_blank" rel="noopener">MCP 大白话讲透</a></p>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- L6 -->
+  <div class="card" id="c5">
+    <div class="card-head"><div class="lv a">6</div><div class="tt"><h3>让 AI 多想几条路：ToT 思维树</h3><div class="sub">高手级 · 复杂决策 / 规划 / 谜题的「多方案探索」法</div></div><div class="stars">★★★★</div><div class="chev">▾</div></div>
+    <div class="body"><div class="inner">
+      <div class="blk"><span class="lbl">🗣️ 大白话</span>
+        <p><b>ToT（Tree of Thoughts，思维树）</b>是 2023 年普林斯顿 + Google DeepMind 提出的一种「让 AI 多想几条路」的方法。</p>
+        <p>对比一下你就懂：</p>
+        <ul class="clean">
+          <li><b>普通思维链（CoT）</b>：像一个人走迷宫，选定一条路走到底。万一第一步就拐错，后面全错，还不会回头。</li>
+          <li><b>思维树（ToT）</b>：像同时派三个人从不同路口进迷宫，走几步比一比，谁卡住了就扔掉，让还顺的继续分叉。最后走通的那条就是答案。</li>
+        </ul>
+        <p>做法：每一步让 AI 想出 <b>几个候选思路 → 给每个打分 → 保留好的、剪掉差的 → 继续往下</b>。适合：数学难题、旅行/项目规划、策略决策、带约束的谜题。</p>
+        <p>代价：要算好多遍，<b>贵 5–50 倍</b>，大多数日常任务用 CoT 就够了，别滥用。</p>
+      </div>
+      <div class="blk pro"><span class="lbl">🔧 专业版</span>
+        <ul class="clean">
+          <li><b>机制</b>：每步生成 K 个候选「下一步想法」（常 K=3），用打分器（同一模型换评价提示，或小模型）评级，BFS/DFS 搜索，扩展高分、剪枝低分；停止条件：找到解 / 到深度上限 / 预算耗尽。</li>
+          <li><b>为什么强</b>：把推理当「搜索空间」系统探索，修掉了单链推理「早期一步错全盘崩」的致命弱点；在带陷阱中间步骤的难题（数学、规划、谜题）上稳定胜过 CoT。</li>
+          <li><b>2026 现实</b>：推理模型（o1/o3、Claude 扩展思考）<b>内部已自动做 ToT 式搜索</b>（并行链 + 评估 + 回溯）。显式 ToT 提示主要用于非推理模型或研究；成本 5–20× 基线，典型任务边际收益有限。</li>
+          <li><b>何时用</b>：问题有明确「搜索结构」（游戏树、规划、约束谜题）且单链推理卡住时；可叠加 Self-Consistency（多链投票）进一步提质量。</li>
+        </ul>
+        <div class="tip">💡 判断口诀：大多数任务先用 CoT 或推理模型；只有当「它老是在同一条错路上死磕」时，才上 ToT。</div>
+      </div>
+      <div class="blk ex"><span class="lbl">✏️ 新手小练习</span>
+        <ul class="clean">
+          <li>给 AI 一个规划题（如「用 5000 元预算做推广」），分别要它「给一个方案」和「先列 3 个方向各评估再选」对比</li>
+          <li>观察第二种是不是更稳、更少漏掉风险</li>
+        </ul>
+      </div>
+      <div class="blk res"><span class="lbl">🔗 资源</span>
+        <p class="links"><a href="https://ossaihub.com/glossary/tree-of-thoughts" target="_blank" rel="noopener">Tree of Thoughts 术语卡</a> · <a href="https://activetechsystems.com/?p=1843/" target="_blank" rel="noopener">CoT vs ToT 详解</a> · 原论文 Yao et al. 2023</p>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- L7 -->
+  <div class="card" id="c6">
+    <div class="card-head"><div class="lv r">7</div><div class="tt"><h3>模型是怎么炼成的：微调与底层原理</h3><div class="sub">内核级 · 想懂「AI 为什么这样」再往下看，纯小白可跳过</div></div><div class="stars">★★★★★</div><div class="chev">▾</div></div>
+    <div class="body"><div class="inner">
+      <div class="blk"><span class="lbl">🗣️ 大白话</span>
+        <p>大模型出厂时像个「博览群书的通才」，但可能对你的特定风格/领域不精。于是要在它基础上加一段「专业进修」——这就是<b>微调（Fine-tuning）</b>。</p>
+        <ul class="clean">
+          <li><b>预训练</b>：让它先「读万卷书」，学语言规律（超贵，厂商做）。</li>
+          <li><b>SFT（监督微调）</b>：给它看标准答案的「题海」——教它学会「听指令」（从续写文本变成回答问题）。</li>
+          <li><b>RLHF / DPO（偏好对齐）</b>：不再给标准答案，而是教它「哪种回答更讨人喜欢、更安全」——这是 ChatGPT 显得贴心无害的关键。</li>
+          <li><b>LoRA / QLoRA</b>：不拆整辆车改造，而是加个「外挂小插件」只改极小部分参数，效果接近全改却便宜 10–100 倍，消费级显卡也能玩。</li>
+        </ul>
+        <p><b>到底用哪个？记住这条线：</b>要它「用我的知识库答」→ 用 <b>RAG</b>；要它「学会某种固定风格/格式」且你有 200+ 例子 → <b>微调</b>；不确定 → 先<b>提示词</b>使劲试，不够再升级。</p>
+      </div>
+      <div class="blk pro"><span class="lbl">🔧 专业版</span>
+        <ul class="clean">
+          <li><b>Pre-training</b>：海量语料（常万亿 token）自监督训练，成本高，由模型厂完成；微调在其之上。</li>
+          <li><b>SFT</b>：{指令,期望输出} 配对训练，是「指令微调 / Instruct Tuning」让模型从续写变助手的第一步。</li>
+          <li><b>RLHF</b>：人类排偏好 → 训奖励模型 → PPO 强化学习优化主模型（ChatGPT 成为 ChatGPT 的关键）。工程复杂、不稳。</li>
+          <li><b>DPO</b>（2023）：跳过奖励模型，直接对「更好/更差」配对优化，更简单、近乎同等有效，已成对齐微调主流。</li>
+          <li><b>LoRA / QLoRA</b>：低秩适配，冻结原权重只训小矩阵（QLoRA 再量化底座），显存降 10–100×，2026 最流行；一个底座可挂多个 LoRA（客服版/法务版…）。</li>
+          <li><b>推理原理小知识</b>：自回归生成（接龙）、<b>Token</b>（模型的基本计量单位）、<b>温度</b>（高=有创意/低=确定）、Top-k/Top-p（更聪明的采样）、<b>注意力机制</b> Attention=softmax(QKᵀ/√d)V。</li>
+        </ul>
+        <div class="tip">💡 成本现实：全参微调 70B 模型要多张 A100；LoRA 同模型消费级单卡约 $10–100。多数团队的花费在「数据清洗（1k–5k 条高质量样例）」而非算力。</div>
+      </div>
+      <div class="blk ex"><span class="lbl">✏️ 新手小练习</span>
+        <ul class="clean">
+          <li>试着用 API 或现成平台（如 OpenAI fine-tuning）拿 200 条客服对话做个 LoRA，感受「风格内化」</li>
+          <li>或只读不练：把上面名词做成一张对照表贴在墙上</li>
+        </ul>
+      </div>
+      <div class="blk res"><span class="lbl">🔗 资源</span>
+        <p class="links"><a href="https://developer.volcengine.com/articles/7601107949104136228" target="_blank" rel="noopener">火山引擎《AI 大模型入门宝典》</a> · <a href="https://zh.d2l.ai" target="_blank" rel="noopener">李沐《动手学深度学习》</a> · <a href="https://www.deeplearning.ai/courses" target="_blank" rel="noopener">吴恩达 Deeplearning.ai</a></p>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- resources -->
+  <div class="resources">
+    <h2>📚 系统学习资源（按适合人群挑）</h2>
+    <p style="margin:0;color:var(--ink-soft);font-size:13.5px;">下面都是 2026 年仍活跃、免费的优质入口。不学底层原理也完全能把 AI 用得很好——这些定位是「想知其所以然」时再深入。</p>
+    <div class="res-grid">
+      <div class="res"><h4>OpenAI Academy（官方）</h4><p>入门到工作流、教育者、开发者全覆盖，免费，已服务超 200 万人。</p><a href="https://openai.com/academy/" target="_blank" rel="noopener">openai.com/academy</a></div>
+      <div class="res"><h4>李宏毅 GenAI 课程（中文）</h4><p>底层原理讲得最透彻又幽默，B 站有搬运，强烈推荐中文用户。</p><a href="https://speech.ee.ntu.edu.tw/~hylee/GenAI-ML/2025-fall.php" target="_blank" rel="noopener">NTU GenAI 2025</a></div>
+      <div class="res"><h4>李沐《动手学深度学习》</h4><p>中文经典，从零到一的深度学习教材，2025 版 171 集。</p><a href="https://zh.d2l.ai" target="_blank" rel="noopener">zh.d2l.ai</a></div>
+      <div class="res"><h4>吴恩达 Deeplearning.ai</h4><p>英文经典课程集合，体系化、易懂。</p><a href="https://www.deeplearning.ai/courses" target="_blank" rel="noopener">deeplearning.ai/courses</a></div>
+      <div class="res"><h4>Anthropic / Google / Microsoft 课程</h4><p>提示词边界、AI 智能体、Copilot 办公实战，按需选。</p><a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">附：MCP 官网</a></div>
+      <div class="res"><h4>科普中国《AI 黑话》系列</h4><p>给小白的概念扫盲：知识库、RAG、智能体、幻觉、注入…</p><a href="https://www.kepuchina.cn/" target="_blank" rel="noopener">kepuchina.cn</a></div>
+    </div>
+  </div>
+
+  <footer>
+    整理于 2026-10-19 · 内容基于公开网络资料核实 · 难度排序为新手友好设计，可按需跳级 · 大模型迭代快，具体功能/价格以各官网为准
+  </footer>
+</div>
+
+<script>
+  // accordion
+  document.querySelectorAll('.card-head').forEach(function(h){
+    h.addEventListener('click', function(){
+      h.parentElement.classList.toggle('open');
+    });
+  });
+  // roadmap jump
+  document.querySelectorAll('#stops .stop').forEach(function(s){
+    s.addEventListener('click', function(){
+      var i = s.getAttribute('data-i');
+      var c = document.getElementById('c'+i);
+      c.classList.add('open');
+      c.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+  // open first card by default for beginners
+  document.getElementById('c0').classList.add('open');
+</script>
+</body>
+</html>

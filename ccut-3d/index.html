@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>长春工业大学 · 北湖校区东区 3D 漫游</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; color: #fff; touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas#c { display: block; }
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 38%, rgba(25,42,68,.56), rgba(5,12,25,.86)); backdrop-filter: blur(8px); z-index: 20; }
+  #overlay .card { position: relative; overflow: hidden; max-width: 660px; width: 90%; padding: 32px 36px 28px; border-radius: 22px; background: linear-gradient(145deg, rgba(18,31,54,.94), rgba(13,23,41,.88)); border: 1px solid rgba(212,180,116,.34); box-shadow: 0 26px 80px rgba(0,0,0,.38); text-align: center; }
+  #overlay .card::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, transparent, #d4b474, transparent); }
+  #overlay .eyebrow { color: #d4b474; font-size: 11px; letter-spacing: 4px; margin-bottom: 10px; }
+  #overlay h1 { font-size: 28px; letter-spacing: 3px; margin-bottom: 6px; }
+  #overlay h2 { font-size: 15px; font-weight: normal; opacity: .72; margin-bottom: 20px; }
+  .help-title { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: rgba(255,255,255,.58); font-size: 12px; letter-spacing: 2px; }
+  .help-title::before, .help-title::after { content: ''; height: 1px; flex: 1; background: rgba(255,255,255,.12); }
+  .control-guide { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 22px; text-align: left; }
+  .control-group { min-height: 126px; padding: 14px; border-radius: 12px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08); }
+  .control-group h3 { margin-bottom: 10px; color: #d4b474; font-size: 12px; font-weight: 600; letter-spacing: 1px; }
+  .control-row { margin: 8px 0; color: rgba(255,255,255,.74); font-size: 12px; line-height: 1.5; }
+  #overlay kbd, #controlHint kbd { display: inline-block; min-width: 22px; margin-right: 4px; padding: 1px 6px; border: 1px solid rgba(255,255,255,.16); border-bottom-color: rgba(212,180,116,.5); border-radius: 4px; background: rgba(255,255,255,.08); color: #fff; font: 600 11px/1.55 inherit; text-align: center; }
+  #startBtn { font-size: 18px; padding: 12px 40px; border: 0; border-radius: 30px; background: linear-gradient(135deg, #2f80ed, #56ccf2); color: #fff; cursor: pointer; }
+  #startBtn:focus-visible { outline: 3px solid #ffd54f; outline-offset: 3px; }
+  #loading { font-size: 13px; opacity: .7; margin-top: 12px; }
+  #hud { position: fixed; left: 12px; top: 12px; z-index: 10; font-size: 13px; line-height: 1.6; background: rgba(0,0,0,.45); padding: 8px 12px; border-radius: 8px; pointer-events: none; }
+  #place { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 10; font-size: 18px; padding: 6px 18px; border-radius: 20px; background: rgba(0,0,0,.5); opacity: 0; transition: opacity .4s; pointer-events: none; }
+  #toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 10; font-size: 14px; padding: 5px 14px; border-radius: 14px; background: rgba(47,128,237,.85); opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #minimap { position: fixed; right: 12px; top: 12px; z-index: 10; width: 200px; height: 200px; border-radius: 10px; border: 2px solid rgba(255,255,255,.6); background: #000; }
+  #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,.8); z-index: 10; pointer-events: none; }
+  #controlHint { position: fixed; left: 50%; bottom: 18px; z-index: 10; display: flex; gap: 12px; transform: translateX(-50%); padding: 8px 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(8,15,27,.62); box-shadow: 0 8px 26px rgba(0,0,0,.24); color: rgba(255,255,255,.7); font-size: 11px; pointer-events: none; transition: opacity .25s; backdrop-filter: blur(8px); }
+  #controlHint span { white-space: nowrap; }
+  #controlHint span.active { color: #ffd88a; }
+  body:not([data-started="1"]) #controlHint, body[data-paused="1"] #controlHint { opacity: 0; }
+  #mobile { display: none; }
+  .touch #mobile { display: block; }
+  #joy { position: fixed; left: 24px; bottom: 24px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); z-index: 15; }
+  #knob { position: absolute; left: 40px; top: 40px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.55); }
+  .mbtn { position: fixed; z-index: 15; width: 60px; height: 60px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); background: rgba(0,0,0,.35); color: #fff; font-size: 14px; }
+  .mbtn.on { background: rgba(47,128,237,.7); }
+  #bJump { right: 24px; bottom: 30px; } #bDown { right: 24px; bottom: 100px; display: none; }
+  #bRun { right: 96px; bottom: 30px; } #bFly { right: 96px; bottom: 100px; } #bNight { right: 168px; bottom: 30px; } #bView { right: 168px; bottom: 100px; }
+  @media (max-width: 720px) { .control-guide { grid-template-columns: 1fr; } .control-group { min-height: auto; } #controlHint { display: none; } #minimap { width: 130px; height: 130px; } #hud { font-size: 11px; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="overlay"><div class="card">
+  <div class="eyebrow">CAMPUS EXPLORER</div>
+  <h1>长春工业大学</h1>
+  <h2>北湖校区 · 东区 3D 漫游</h2>
+  <div class="help-title">键盘操作</div>
+  <div id="helpDesk" class="control-guide">
+    <section class="control-group"><h3>移动</h3>
+      <div class="control-row"><kbd>WASD</kbd> 行走 · 鼠标环顾</div>
+      <div class="control-row"><kbd>Shift</kbd> 奔跑</div>
+      <div class="control-row"><kbd>空格</kbd> 跳跃</div>
+    </section>
+    <section class="control-group"><h3>视角</h3>
+      <div class="control-row"><kbd>V</kbd> 切换五种视角</div>
+      <div class="control-row"><kbd>F</kbd> 飞行开关</div>
+      <div class="control-row"><kbd>空格</kbd> 上升 · <kbd>C</kbd> 下降</div>
+    </section>
+    <section class="control-group"><h3>探索</h3>
+      <div class="control-row"><kbd>N</kbd> 黄昏 / 夜晚</div>
+      <div class="control-row"><kbd>M</kbd> 小地图 · <kbd>1–6</kbd> 地标</div>
+      <div class="control-row"><kbd>H</kbd> 帮助 · <kbd>Esc</kbd> 暂停</div>
+    </section>
+  </div>
+  <ul id="helpTouch" style="display:none">
+    <li>左下摇杆 移动 &nbsp; 右侧滑动 环顾</li>
+    <li>按钮：跳跃 / 奔跑 / 飞行 / 昼夜</li>
+  </ul>
+  <br><button id="startBtn" disabled>加载中…</button>
+  <div id="loading">建筑轮廓来自 OpenStreetMap，地面为 Esri 卫星影像 · 在建/空地部分与实际可能有出入</div>
+</div></div>
+<div id="hud">位置 <span id="pos">0, 0</span><br>视图 <span id="view">第一人称</span> · 模式 <span id="mode">步行</span> · <span id="time">白天</span><br><span id="fps">-- FPS</span></div>
+<div id="place"></div>
+<div id="toast"></div>
+<div id="crosshair"></div>
+<canvas id="minimap" width="400" height="400"></canvas>
+<div id="controlHint" aria-hidden="true">
+  <span data-key="WASD"><kbd>WASD</kbd>移动</span>
+  <span data-key="V"><kbd>V</kbd>视角</span>
+  <span data-key="F"><kbd>F</kbd>飞行</span>
+  <span data-key="N"><kbd>N</kbd>昼夜</span>
+  <span data-key="M"><kbd>M</kbd>地图</span>
+  <span data-key="H"><kbd>H</kbd>帮助</span>
+</div>
+<div id="mobile">
+  <div id="joy"><div id="knob"></div></div>
+  <button class="mbtn" id="bJump">跳</button>
+  <button class="mbtn" id="bDown">降</button>
+  <button class="mbtn" id="bRun">跑</button>
+  <button class="mbtn" id="bFly">飞</button>
+  <button class="mbtn" id="bNight">昼夜</button>
+  <button class="mbtn" id="bView">视图</button>
+</div>
+<script src="three.min.js"></script>
+<script src="tiles.js"></script>
+<script src="data.js"></script>
+<script src="campus-labels.js?v=east-labels-1"></script>
+<script>CAMPUS_LABELS.applyEastCampusLabels(CAMPUS_DATA);</script>
+<script src="hero-assets.js?v=photo-facade-3"></script>
+<script src="hero-loader.js?v=blender-hero-1"></script>
+<script src="hero-materials.js?v=photo-facade-3"></script>
+<script src="visual-style.js?v=stadium-grandstands-1"></script>
+<script src="campus.js?v=stadium-grandstands-1"></script>
+<script src="portal-bridge.js?v=portal-embed-1"></script>
+<script src="game.js?v=ground-stability-1"></script>
+<script type="module" src="hero-runtime.js?v=photo-facade-3"></script>
+</body>
+</html>
+<!--END-->

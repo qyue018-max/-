@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>人情世故指南 · 开源相处手册</title>
+<style>
+  :root {
+    --blue: #2b3ecb;
+    --blue-deep: #1a2687;
+    --cream: #f4f2ed;
+    --gold: #f0b429;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--blue-deep); }
+  body {
+    display: flex;
+    flex-direction: column;
+    font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, sans-serif;
+    color: var(--cream);
+  }
+  .rq-bar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 54px;
+    padding: 0 18px;
+    background: linear-gradient(90deg, var(--blue) 0%, var(--blue-deep) 100%);
+    border-bottom: 1px solid rgba(240, 180, 41, 0.4);
+  }
+  .rq-title {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--cream);
+  }
+  .rq-sub {
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: rgba(244, 242, 237, 0.66);
+  }
+  .rq-spacer { flex: 1 1 auto; }
+  .rq-open {
+    font-size: 13px;
+    color: var(--blue-deep);
+    background: var(--gold);
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .rq-open:hover { filter: brightness(1.06); }
+  .rq-frame-wrap { flex: 1 1 auto; position: relative; min-height: 0; }
+  iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #fff;
+  }
+  .rq-fallback {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+    padding: 24px;
+    background: var(--blue-deep);
+  }
+  .rq-fallback.show { display: flex; }
+  .rq-fallback p { max-width: 420px; line-height: 1.7; color: rgba(244,242,237,0.82); }
+</style>
+</head>
+<body>
+  <div class="rq-bar">
+    <span class="rq-title">人情世故指南</span>
+    <span class="rq-sub">HowToGetAlong · 开源相处手册 · 10 章 76 个场景</span>
+    <span class="rq-spacer"></span>
+    <a class="rq-open" href="https://kkk-bot.github.io/HowToGetAlong/" target="_blank" rel="noopener">↗ 新标签打开</a>
+  </div>
+  <div class="rq-frame-wrap">
+    <iframe
+      id="guide"
+      src="https://kkk-bot.github.io/HowToGetAlong/"
+      title="人情世故指南 · 开源相处手册"
+      allow="fullscreen"
+      referrerpolicy="no-referrer"></iframe>
+    <div class="rq-fallback" id="fallback">
+      <p>指南站加载有点慢或暂时连不上（它放在 GitHub 上，国内网络时快时慢）。<br/>可以稍等片刻，或点右上角「新标签打开」直接访问。</p>
+    </div>
+  </div>
+  <script>
+    // 用 iframe 自身 load 事件作为成功信号（跨域加载成功也会触发），
+    // 只有超时都没 load 才显示兜底（断网 / GitHub Pages 访问慢）。
+    var iframe = document.getElementById("guide");
+    var loaded = false;
+    var fallback = document.getElementById("fallback");
+    var timer = setTimeout(function () {
+      if (!loaded && fallback) fallback.classList.add("show");
+    }, 15000);
+    iframe.addEventListener("load", function () {
+      loaded = true;
+      clearTimeout(timer);
+      if (fallback) fallback.classList.remove("show");
+    });
+  </script>
+</body>
+</html>

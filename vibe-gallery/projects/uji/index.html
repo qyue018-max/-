@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UJI</title>
+    <link rel="icon" type="image/svg+xml" href="logo.svg">
+    <link rel="apple-touch-icon" href="logo-homescreen.png">
+    <link rel="stylesheet" href="fonts/iosevka-aile/3.4.6/webfont.css">
+    <link rel="stylesheet" href="fonts/noto-sans/2017-10-24/webfonts.css">
+    <meta name="description" content="A minimalist generative art thing – press the buttons and play with the sliders.">
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:site" content="@doersino" />
+    <meta name="twitter:title" content="UJI" />
+    <meta name="twitter:description" content="A minimalist generative art thing – press the buttons and play with the sliders." />
+    <meta name="twitter:image" content="logo-homescreen.png" />
+    <style>
+        :root {
+            --font: "Iosevka Aile Web", "Iosevka Aile", "Iosevka", sans-serif;
+            --presets-font: NotoSansTifinagh, sans-serif;
+            --options-font: NotoSansImperialAramaic, NotoSansPhoenician, sans-serif;
+
+            --sidebar-width: 22.5em;
+
+            --red: #e67;
+            --green: #5b6;
+            --blue: #89f;
+
+            --text-color: #eee;
+        }
+
+        * {
+            margin: 0;
+            box-sizing: border-box;
+        }
+        html {
+            font-size: 12px;
+        }
+        body {
+            font-family: var(--font);
+            line-height: 1.2;
+            background-color: #111;
+            color: var(--text-color);
+        }
+        .sidebar {
+            width: var(--sidebar-width);
+            min-height: 100vh;
+            background-color: #333;
+            padding: 1em;
+            padding-bottom: 4em;
+        }
+        .logo {
+            float: left;
+            width: 52px;
+            margin-right: 1em;
+            margin-top: 0.2em;
+            transition: 0.1s;
+            margin-bottom: 1em;
+        }
+        .logo:hover {
+            transform: rotate(-90deg);
+        }
+        .logo path:hover {
+            stroke-width: 2px;
+        }
+        .logo path:nth-child(3n):hover {
+            stroke: var(--red);
+        }
+        .logo path:nth-child(3n+1):hover {
+            stroke: var(--green);
+        }
+        .logo path:nth-child(3n+2):hover {
+            stroke: var(--blue);
+        }
+        .introduction p {
+            margin-top: -0.2em;
+        }
+        a {
+            color: inherit;
+            opacity: 0.7;
+        }
+        hr {
+            border: none;
+            height: 1px;
+            background-color: #555;
+            margin: 1em 0;
+            clear: both;
+        }
+        label + hr {
+            margin-top: 1.5em;
+        }
+        h2 {
+            font-size: 0.8em;
+            text-transform: uppercase;
+            margin-bottom: -0.5rem;
+            margin-top: -1.5rem;
+            background-color: #333;
+            font-weight: normal;
+            letter-spacing: 0.2em;
+            display: inline-block;
+            position: absolute;
+            padding-right: 0.5em;
+        }
+
+        .presets {
+            padding: 0.5em 2em 1em 0;
+            margin-left: -1em;
+        }
+        .presets button {
+            background-color: #ddd;
+            font: inherit;
+            color: black;
+            border: 0;
+            cursor: pointer;
+            font-family: var(--presets-font);
+            font-size: 1.2em;
+            width: 2em;
+            height: 2em;
+            padding: 0.2em;
+            margin-left: 1.2em;
+            margin-bottom: 1.2em;
+            border-radius: 0.2rem;
+            transform: rotate(-45deg);
+            transition: 0.2s;
+        }
+        .presets button:nth-child(even) {
+            margin-top: 1.6em;
+            margin-left: -0.4em;
+            position: absolute;
+        }
+        .presets button:hover,
+        .presets button.diverged:hover {
+            background-color: #999;
+            box-shadow: -0.1em 0.1em 0.4em #0002 inset;
+            transform: rotate(-30deg) scale(0.9);
+        }
+        .presets button.selected {
+            background-color: #aaa;
+            box-shadow: -0.1em 0.1em 0.4em #0004 inset;
+            transform: rotate(45deg);
+        }
+        .presets button.diverged {
+            background-color: #bbb;
+            box-shadow: -0.1em 0.1em 0.4em #0003 inset;
+            transform: rotate(-45deg);
+        }
+        .presets + hr {
+            margin-top: 0.5em;
+        }
+        label {
+            display: block;
+            margin: 1em 0;
+        }
+        .flashed {
+            animation: flash 0.5s linear;
+        }
+        @keyframes flash {
+            from {
+                filter: brightness(1.4) blur(0.1em) sepia(0.2);
+            }
+            to {
+                filter: none;
+            }
+        }
+        .letter {
+            font-family: var(--options-font);
+            display: inline-block;
+            width: 2rem;
+            height: 2rem;
+            text-align: center;
+            background-color: #bbb;
+            color: black;
+            font-size: 1.8em;
+            line-height: 1;
+            vertical-align: top;
+            border-radius: 0.2rem 0 0 0.2rem;
+            cursor: help;
+        }
+        .value {
+            display: inline-block;
+            position: absolute;
+            font: inherit;
+            color: inherit;
+            border: 0;
+            width: 4em;
+            text-align: right;
+            margin-left: -4em;
+            padding: 0.05em 0.15em 0 0;
+            outline: none;
+            background-color: transparent;
+            transition: 0.05s;
+        }
+        .value:focus {
+            filter: drop-shadow(0 0 0.5em white);
+            font-size: 1.2em;
+        }
+        .value.out-of-bounds {
+            color: #f50;
+            font-style: italic;
+        }
+        .description {
+            display: none;
+            background-color: #222d;
+            padding: 0.5em;
+            position: absolute;
+            z-index: 100;
+            margin-top: -3.7em;
+            margin-left: 1.7em;
+            transform: rotate(-5deg);
+            transform-origin: bottom left;
+            border-radius: 0.2em;
+            max-width: 30em;
+            pointer-events: none;
+        }
+        .description i {
+            font-size: 0.8em;
+            font-style: normal;
+            display: block;
+            color: #ccc;
+        }
+        .letter:hover ~ .description {
+            display: block;
+        }
+        .slider {
+            vertical-align: top;
+            display: inline-block;
+            -webkit-appearance: none;
+            width: calc(100% - 2rem);
+            height: 2rem;
+            background-color: #666;
+            outline: none;
+            border: 0;
+            border-radius: 0;
+            transition: 0.1s;
+            border-radius: 0 0.2rem 0.2rem 0;
+            padding: 0 1px;
+            cursor: grab;
+        }
+        label:hover .slider {
+            background-color: #888;
+        }
+        .slider:active {
+            background-color: #999 !important;
+            cursor: grabbing;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1rem;
+            height: calc(2rem - 2px);
+            background: #fff;
+            border-radius: 0.2rem;
+            outline: none;
+        }
+        .slider::-moz-range-thumb {
+            width: 1em;
+            height: 2em;
+            background: #fff;
+            border: 0;
+            border-radius: 0;
+            border-radius: 0.2rem;
+        }
+        .red .letter {
+            background-color: var(--red);
+        }
+        .red .slider::-webkit-slider-thumb {
+            background: var(--red);
+        }
+        .red .slider::-moz-range-thumb {
+            background: var(--red);
+        }
+        .green .letter {
+            background-color: var(--green);
+        }
+        .green .slider::-webkit-slider-thumb {
+            background: var(--green);
+        }
+        .green .slider::-moz-range-thumb {
+            background: var(--green);
+        }
+        .blue .letter {
+            background-color: var(--blue);
+        }
+        .blue .slider::-webkit-slider-thumb {
+            background: var(--blue);
+        }
+        .blue .slider::-moz-range-thumb {
+            background: var(--blue);
+        }
+        .halftransparent .slider::-webkit-slider-thumb {
+            background: #0005;
+        }
+        .halftransparent .slider::-moz-range-thumb {
+            background: #0005;
+        }
+        .hueshifty .slider::-webkit-slider-thumb {
+            background: linear-gradient(-45deg, #eebbbb 0%, #eeeebb 17%, #bbeebb 33%, #bbeeee 50%, #bbbbee 67%, #eebbee 83%, #eebbbb 100%);
+        }
+
+        .actions {
+            position: fixed;
+            z-index: 200;
+            left: 0;
+            bottom: 0;
+            padding: 1em 1em 0;
+            width: var(--sidebar-width);
+            background: linear-gradient(to bottom, transparent, #0004 1em, #505050 1em, #444 100%);
+            text-align: center;
+        }
+        .actions .buttons-group {
+            display: inline-block;
+            box-shadow: 0 -0.6rem 1rem #0004;
+            transform: translateY(-1rem);
+            margin-right: 0.3em;
+        }
+        .actions .buttons .buttons-group:last-child {
+            margin-right: 0;
+        }
+        .actions .buttons .restore-dialog {
+            display: none;
+            position: absolute;
+            height: 0;
+        }
+        .actions .buttons .restore-dialog-inner {
+            position: relative;
+            text-align: left;
+            margin-top: -7rem;
+            padding: 0.5rem;
+            font-size: 0.8em;
+            background-color: #eee;
+            color: #111;
+            width: 22em;
+            border-radius: 0.2rem;
+            box-shadow: 0 -0.3rem 1rem #0004;
+            transform: rotate(-5deg);
+            transform-origin: bottom left;
+            z-index: 600;
+            cursor: sw-resize;  /* thought this was cute since it points toward the undo button */
+        }
+        .actions .buttons .restore-dialog-inner i {
+            color: #666;
+        }
+        .actions .buttons .restore-dialog-inner:after {
+            content: '';
+            position: absolute;
+            margin-top: -0.1em;
+            left: 0.5em;
+            top: 100%;
+            width: 0;
+            height: 0;
+            border-left: 1em solid transparent;
+            border-right: 1em solid transparent;
+            border-top: 1em solid #eee;
+            clear: both;
+        }
+        .actions .buttons button {
+            font: inherit;
+            font-size: 1.2em;
+            color: #111;
+            text-transform: uppercase;
+            height: 2em;
+            background-color: #ddd;
+            border-radius: 0.2rem;
+            border: none;
+            display: inline-block;
+            cursor: pointer;
+            padding: 0 0.8em;
+            transition: 0.2s;
+            padding-bottom: 0.1em;
+        }
+        .actions .buttons button svg {
+            height: 0.95em;
+            vertical-align: bottom;
+            padding-bottom: 0.2em;
+        }
+        .actions .buttons button:hover,
+        .actions .buttons button.active {
+            background-color: #aaa;
+            transform: rotate(-3deg);
+            transform-origin: bottom left;
+        }
+        .actions .buttons button.active:hover {
+            background-color: #ddd;
+            transform: none;
+        }
+        .actions .buttons button.undo {
+            border-radius: 0.2rem 0 0 0.2rem;
+            border-right: 1px solid #aaa;
+            margin-right: 0;
+        }
+        .actions .buttons button.redo {
+            border-radius: 0 0.2rem 0.2rem 0;
+        }
+        .actions .buttons button[disabled] {
+            background-color: #bbb !important;
+            color: #777;
+            cursor: not-allowed;
+        }
+        .actions .buttons button.undo:hover,
+        .actions .buttons button.redo:hover,
+        .actions .buttons button[disabled]:hover {
+            transform: none;
+        }
+
+        .sheet {
+            display: none;
+            text-align: left;
+            padding-bottom: 1em;
+        }
+        .sheet p {
+            margin-bottom: 0.5rem;
+        }
+        .sheet button + p {
+            margin-top: 1rem;
+        }
+        .svg-filesize-estimate,
+        .json-filesize-estimate {
+            font-size: 0.8rem;
+        }
+        .caring {  /* share-link, share-text, and share-button seem to trip some ad blockers, and sharing is caring, hence this class name */
+            background-color: #999;
+            border: 0;
+            height: 3em;
+            margin-top: 0.5rem;
+            font: inherit;
+            color: #111;
+            line-height: 1;
+            width: 100%;
+            vertical-align: bottom;
+            padding: 0 1em;
+            border-radius: 0.2em 0.2em 0.2em 0;
+        }
+        .caring-button,
+        .export-button {
+            background: none;
+            border: none;
+            font: inherit;
+            background-color: #ddd;
+            height: 2em;
+            cursor: pointer;
+            vertical-align: bottom;
+            text-transform: uppercase;
+            border-radius: 0 0 0.2rem 0.2rem;
+            transition: 0.1s;
+        }
+        .caring-button.copy {
+            cursor: copy;
+        }
+        .export-button {
+            font-size: 1.2em;
+            border-radius: 0.2rem;
+            padding: 0 1rem;
+            width: 100%;
+            margin-top: 0.5em;
+            text-transform: none;
+            text-align: left;
+        }
+        .export-button em {
+            float: right;
+            color: #666;
+        }
+        .caring-button:hover,
+        .export-button:hover {
+            background-color: #aaa;
+        }
+        .caring-button:active,
+        .export-button:active {
+            background-color: #aaa;
+        }
+        .share-sheet .share-status {
+            display: none;
+            margin-top: 0.5rem;
+            margin-bottom: 0;
+            font-size: 0.8em;
+        }
+
+        .iterations {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            z-index: 400;
+        }
+        .iterations i {
+            display: block;
+            background-color: #888;
+            height: 0.3em;
+            width: 0;
+            transition: 0.2s linear;
+        }
+
+        .drawing {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: calc(100% - var(--sidebar-width));
+            display: grid;
+            background-color: #111;
+        }
+        .drawing canvas {
+            margin: auto;
+            max-height: 100vh;
+            max-width: 100%;
+            background-color: white;
+        }
+
+        @media screen and (max-width: 600px) and (max-aspect-ratio: 3/4) {
+            .sidebar {
+                width: 100%;
+                margin-top: 75vw;
+            }
+            .actions {
+                width: 100%;
+            }
+            .actions .buttons button {
+                padding: 0 1.4em;  /* make buttons easier to hit by finger */
+            }
+            .iterations {
+                width: 100%;
+            }
+            .drawing {
+                height: 75vw;
+                width: 100%;
+            }
+            .drawing canvas {
+                max-height: 75vw;
+            }
+            .slider::-webkit-slider-thumb {
+                width: 4em;
+            }
+            .slider::-moz-range-thumb {
+                width: 4em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="introduction">
+            <svg class="logo" xmlns="http://www.w3.org/2000/svg" version="1.1" style="stroke-linecap: round; stroke-width: 4px; stroke: currentColor; fill: none;" viewBox="0 0 52 52">
+                <g transform="translate(2, 2)">
+                    <path d="M 0,0 L 0,16"></path>
+                    <path d="M 32,0 L 32,16"></path>
+                    <path d="M 40,0 L 40,32"></path>
+                    <path d="M 48,0 L 48,48"></path>
+                    <path d="M 0,48 L 24,48"></path>
+                    <path d="M 16,32 C -0.8,32 0,16 0,16"></path>
+                    <path d="M 16,32 C 32.8,32 32,16 32,16"></path>
+                    <path d="M 24,48 C 40.8,48 40,32 40,32"></path>
+                </g>
+            </svg>
+            <p class="hero">A minimalist generative art thing – press the buttons and play with the sliders. Find out <a href="https://github.com/doersino/uji">more on GitHub</a>.</p>
+        </div>
+        <hr>
+        <div class="presets"></div>
+        <div class="options"></div>
+    </aside>
+    <aside class="actions">
+        <div class="buttons">
+            <div class="buttons-group">
+                <div class="restore-dialog">
+                    <div class="restore-dialog-inner" onclick="hideRestoreDialog()">
+                        <!--<span style="font-size: 1.67em; float: right; padding-left: 0.2rem;">👋</span>-->
+                        Hey, welcome back! Looking to restore what you've been working on last time? Use the <em>undo</em> button!<br>
+                        <i>(Click me or just start doing something else to dismiss.)</i>
+                    </div>
+                </div>
+                <button class="undo" disabled onclick="undo()">
+                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="stroke-linecap: round; stroke-width: 6px; stroke: currentColor; fill: none;" viewBox="0 0 18 54">
+                        <g transform="translate(7,3)">
+                            <path d="M 8,0 L -4,24 L 8,48"></path>
+                        </g>
+                    </svg>
+                </button><button class="redo" disabled onclick="redo()">
+                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="stroke-linecap: round; stroke-width: 6px; stroke: currentColor; fill: none;" viewBox="0 0 18 54">
+                        <g transform="translate(3,3)">
+                            <path d="M 0,0 L 12,24 L 0,48"></path>
+                        </g>
+                    </svg>
+                </button>
+            </div>
+            <div class="buttons-group">
+                <button class="export">
+                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="stroke-linecap: round; stroke-width: 4px; stroke: currentColor; fill: none;" viewBox="0 0 36 44">
+                        <g transform="translate(2, -6)">
+                            <path d="M 16,8 L 16,48"></path>
+                            <path d="M 0,16 L 16,48"></path>
+                            <path d="M 16,48 L 32,16"></path>
+                        </g>
+                    </svg>
+                    export
+                </button>
+            </div>
+            <div class="buttons-group">
+                <button class="share">
+                    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="stroke-linecap: round; stroke-width: 4px; stroke: currentColor; fill: none;" viewBox="0 0 40 48">
+                        <g transform="translate(8, 8)">
+                            <path d="M 16,0 C -4.8,0 -4.8,32 16,32"></path>
+                            <circle cx="0" cy="16" r="6" style="fill: var(--red);"></circle>
+                            <circle cx="24" cy="0" r="6" style="fill: var(--green);"></circle>
+                            <circle cx="24" cy="32" r="6" style="fill: var(--blue);"></circle>
+                        </g>
+                    </svg>
+                    share
+                </button>
+            </div>
+        </div>
+        <div class="sheet export-sheet">
+            <p>You can download your drawing in the form of PNG or JPEG images.</p>
+            <button class="export-button" onclick="downloadPNG()">PNG <em>lossless</em></button>
+            <button class="export-button" onclick="downloadJPEG()">JPEG <em>90% quality</em></button>
+            <p>Alternatively, you can export the line geometry as an SVG file – for, say, pen plotting. This'll be a black line on a transparent background – no colors, blend modes, or blurry shadows.</p>
+            <p class="svg-filesize-estimate"></p>
+            <button class="export-button" onclick="downloadSVG()">SVG <em>line geometry only</em></button>
+            <p>The line geometry is also available in <a href="https://github.com/doersino/brachiosaurus">easily</a> disgestible JSON form: as a list of line segments, where each line segment is a list of points, and each point is a 2-ary list of float-valued <em>x</em> and <em>y</em> coordinates.</p>
+            <p class="json-filesize-estimate"></p>
+            <button class="export-button" onclick="downloadJSON()">JSON <em>nerdy line geometry</em></button>
+        </div>
+        <div class="sheet share-sheet">
+            <p>This link contains the options you've dialled in – anyone who comes here through it will see the same drawing.</p>
+            <p><em>Fun fact:</em> The filenames of downloaded images contain your options in the same format, so you can recover them from there, too.</p>
+            <input type="text" class="caring" readonly spellcheck="false" value="">
+            <button class="caring-button copy" onclick="copyShareLink()">Copy</button>
+            <button class="caring-button" onclick="openShareLink()">Open</button>
+            <button class="caring-button" onclick="shareShareLink()">Share…</button>
+            <p class="share-status"></p>
+        </div>
+    </aside>
+    <div class="iterations"><i></i></div>
+    <div class="drawing"><canvas></canvas></div>
+    <script src="script.js"></script>
+</body>
+</html>

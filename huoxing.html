@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>火星比东北冷 — 科幻情景动画短片</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=VT323&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#141018;overflow:hidden}
+  canvas{display:block}
+  #snd{position:fixed;top:14px;right:14px;z-index:9;background:#241b30;color:#fff;
+    border:2px solid #4a3f5c;border-radius:10px;padding:8px 14px;font:700 15px/1 sans-serif;cursor:pointer}
+  #snd:hover{background:#38294a}
+  #hint{position:fixed;bottom:8px;right:12px;z-index:9;color:#6b5f7d;font:12px/1.4 sans-serif;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="snd">🔇 声音</button>
+<div id="hint">点说话的角色推进对白 · 对白演完点暖气片穿越 · 点其他目标有彩蛋 · 按 M 切换声音</div>
+<script>
+"use strict";
+/* =====================================================================
+   《火星比东北冷》—— 海南学生小椰 x 东北舍友铁子
+   引擎与风格规则同 demo：沸腾描边 / 平面填充 / 恒定线宽 /
+   一世界一色板 / 传送门唯一发光 / 字幕胶囊 / 12fps 逐格 + 24fps 传送门
+   ===================================================================== */
+
+// ---------- 基础 ----------
+const W = 1280, H = 720;
+const LINE = "#241b30", EYE = "#ffffff", SKIN = "#f1c9a2";
+const GLOW = "#86f0ff";                      // 电光青：只归传送门
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+let cw = 0, ch = 0, dpr = 1, fit = 1;
+function resize(){
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cw = window.innerWidth; ch = window.innerHeight;
+  cv.width = cw * dpr; cv.height = ch * dpr;
+  cv.style.width = cw + "px"; cv.style.height = ch + "px";
+  fit = Math.min(cw / W, ch / H);
+}
+addEventListener("resize", resize); resize();
+
+// ---------- 噪声 & 沸腾描边 ----------
+function hsh(n){ const s = Math.sin(n) * 43758.5453; return s - Math.floor(s); }
+function noise2(x, y){
+  const i = Math.floor(x), j = Math.floor(y * 7.13) % 977;
+  const f = x - i, u = f * f * (3 - 2 * f);
+  return hsh(i * 127.1 + j * 311.7) * (1 - u) + hsh((i + 1) * 127.1 + j * 311.7) * u;
+}
+function resample(pts, step){
+  if (pts.length < 2) return pts.slice();
+  const out = [pts[0]];
+  let px = pts[0][0], py = pts[0][1], carry = 0;
+  for (let i = 1; i < pts.length; i++){
+    const bx = pts[i][0], by = pts[i][1];
+    const dx = bx - px, dy = by - py, d = Math.hypot(dx, dy);
+    if (d > 0){
+      let tt = step - carry;
+      while (tt <= d){
+        const u = tt / d;
+        out.push([px + dx * u, py + dy * u]);
+        tt += step;
+      }
+      carry = d - (tt - step);
+    }
+    px = bx; py = by;
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+function boilPts(pts, seed, amp){
+  const r = resample(pts, 7);
+  if (r.length < 3) return pts;
+  const n = r.length, out = new Array(n);
+  for (let i = 0; i < n; i++){
+    const p = r[i], a = r[(i - 1 + n) % n], b = r[(i + 1) % n];
+    let nx = -(b[1] - a[1]), ny = b[0] - a[0];
+    const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    const v = (noise2(i * 0.13, seed) * 2 - 1) * amp;
+    out[i] = [p[0] + nx * v, p[1] + ny * v];
+  }
+  return out;
+}
+
+// ---------- 相机（点变换进屏幕，恒定线宽描边） ----------
+let camX = 640, camY = 360, camZ = 1, shakeX = 0, shakeY = 0;
+function w2u(p){
+  const k = fit * camZ;
+  const ox = cw / 2 - (camX + shakeX) * k, oy = ch / 2 - (camY + shakeY) * k;
+  return [(p[0] * k + ox - (cw - W * fit) / 2) / fit,
+          (p[1] * k + oy - (ch - H * fit) / 2) / fit];
+}
+function uiT(){
+  const ox = (cw - W * fit) / 2, oy = (ch - H * fit) / 2;
+  ctx.setTransform(dpr * fit, 0, 0, dpr * fit, dpr * ox, dpr * oy);
+}
+
+// ---------- 绘图原语 ----------
+let boilStep = 0;
+function shape(pts, o){
+  o = o || {};
+  const fill = o.fill || null, stroke = ("stroke" in o) ? o.stroke : LINE;
+  const w = o.w || 7, close = ("close" in o) ? o.close : true;
+  const id = o.id || 0, amp = ("amp" in o) ? o.amp : 1.7;
+  const seed = (o.seed !== undefined ? o.seed : boilStep * 13.7) + id * 0.37;
+  let q = pts;
+  if (amp > 0) q = boilPts(close ? pts.concat([pts[0]]) : pts, seed, amp);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  const path = () => {
+    ctx.beginPath();
+    for (let i = 0; i < q.length; i++){
+      const p = w2u(q[i]);
+      i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+    }
+    if (close) ctx.closePath();
+  };
+  if (fill){ path(); ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke){ path(); ctx.lineWidth = w; ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+function innerShadow(pts, col, dx, dy, id){
+  const seed = boilStep * 13.7 + id * 0.37;
+  const q = boilPts(pts.concat([pts[0]]), seed, 1.7);
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < q.length; i++){
+    const p = w2u(q[i]);
+    i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+  }
+  ctx.closePath(); ctx.clip();
+  ctx.beginPath();
+  for (let i = 0; i < q.length; i++){
+    const p = w2u([q[i][0] + dx, q[i][1] + dy]);
+    i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+  }
+  ctx.closePath();
+  ctx.fillStyle = col; ctx.fill();
+  ctx.restore();
+}
+function shade(hex, f){
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.round((n >> 16) * f));
+  const g = Math.min(255, Math.round(((n >> 8) & 255) * f));
+  const b = Math.min(255, Math.round((n & 255) * f));
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+function blob(cx, cy, rx, ry, id, n, wob, ph){
+  n = n || 16; wob = (wob === undefined) ? 0.08 : wob; ph = ph || 0;
+  const pts = [];
+  for (let i = 0; i < n; i++){
+    const a = i / n * Math.PI * 2;
+    const r = 1 + (noise2(i * 0.8 + id * 7.3, ph * 3.1 + 2) * 2 - 1) * wob;
+    pts.push([cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r]);
+  }
+  return pts;
+}
+function circlePts(x, y, r, n){ n = n || 12; return blob(x, y, r, r, 0, n, 0); }
+function noodle(x1, y1, x2, y2, bend, id, w){
+  w = w || 7;
+  const mx = (x1 + x2) / 2 + bend, my = (y1 + y2) / 2, pts = [];
+  for (let i = 0; i <= 10; i++){
+    const tt = i / 10;
+    pts.push([(1-tt)*(1-tt)*x1 + 2*(1-tt)*tt*mx + tt*tt*x2,
+              (1-tt)*(1-tt)*y1 + 2*(1-tt)*tt*my + tt*tt*y2]);
+  }
+  shape(pts, { w: w, close: false, id: id });
+}
+function boxPts(x, y, w, h){ return [[x,y],[x+w,y],[x+w,y+h],[x,y+h]]; }
+
+// ---------- 眼 / 嘴（参数化） ----------
+let curSkin = SKIN;
+function eyeDraw(x, y, r, pdx, pdy, lidFrac, id){
+  const c = circlePts(x, y, r, 12);
+  shape(c, { fill: EYE, w: 5, id: id });
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < c.length; i++){
+    const p = w2u(c[i]);
+    i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+  }
+  ctx.closePath(); ctx.clip();
+  ctx.fillStyle = curSkin;
+  ctx.fillRect(x - r - 2, y - r - 2, 2*r + 4, 2*r * lidFrac + 1);
+  ctx.strokeStyle = LINE; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(x - r - 2, y - r + 2*r*lidFrac);
+  ctx.lineTo(x + r + 2, y - r + 2*r*lidFrac);
+  ctx.stroke();
+  ctx.restore();
+  if (lidFrac < 0.8){
+    const py = y + r * 0.05 + pdy * r * 0.3;
+    shape(circlePts(x + pdx * r * 0.45, py, 4.5, 8), { fill: LINE, stroke: null, amp: 0 });
+  }
+}
+function mouthDraw(cx, cy, wd, open, curl, id){
+  const h = 4 + open * 24, pts = [], n = 10;
+  for (let k = 0; k <= n; k++){
+    const u = k / n;
+    pts.push([cx - wd/2 + u*wd, cy - 2 + curl*6*Math.sin(Math.PI*u) - h*0.15]);
+  }
+  for (let k = n; k >= 0; k--){
+    const u = k / n;
+    pts.push([cx - wd/2 + u*wd, cy - 2 + curl*6*Math.sin(Math.PI*u) + h]);
+  }
+  shape(pts, { fill: "#571f30", w: 6, id: id });
+  if (open > 0.45){
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++){
+      const p = w2u(pts[i]);
+      i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+    }
+    ctx.closePath(); ctx.clip();
+    ctx.fillStyle = EYE;
+    ctx.fillRect(cx - wd/2 + 2, cy - 4, wd - 4, h * 0.34);
+    if (open > 0.7){
+      ctx.fillStyle = "#e0697f";
+      const c = w2u([cx, cy + h * 0.8]);
+      ctx.beginPath();
+      ctx.ellipse(c[0], c[1], wd * 0.3, h * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+function blinkF(tt, id){
+  const per = 2.6 + hsh(id * 7.7) * 2.2, ph = tt % per;
+  return ph < 0.16 ? ph / 0.16 : (ph < 0.32 ? 1 - (ph - 0.16) / 0.16 : 0);
+}
+
+// ---------- 世界数据 ----------
+const WORLDS = [
+  { tag: "WORLD_01 :: 东北 · 宿舍 529", tagCol: "#9fc4e8", prop: 1 },
+  { tag: "WORLD_02 :: 火星", tagCol: "#ff9d6b", prop: 2 },
+  { tag: "WORLD_03 :: 海南 · 三亚", tagCol: "#8fd4a8", prop: 3 },
+];
+
+// ---------- 分镜（铁子：纯东北味）——对白逐句点击推进 ----------
+const SHOTS = [
+  { world: 0, dur: 10.4, lines: [
+    { who: 0, text: "我再也、再也不过冬天了。", cam: { cx: 780, cy: 390, z: 1.0 }, pauseBefore: 2.4 },
+    { who: 0, text: "……这大铁柜子是啥？", cam: { cx: 520, cy: 400, z: 1.1 } },
+    { who: 1, text: "暖气片改的。能去任何星球，随便挑。", cam: { cx: 950, cy: 400, z: 1.5 }, cu: 1 },
+    { who: 0, text: "火星！听说那边四季如春！", cam: { cx: 700, cy: 400, z: 1.5 }, cu: 1, hyped: 1 },
+  ]},
+  { world: 1, dur: 10.6, lines: [
+    { who: 0, text: "零下六十？！东北才零下二十啊！", cam: { cx: 820, cy: 410, z: 1.2 }, panic: 1 },
+    { who: 1, text: "嗯。但火星没风，将就吧。", cam: { cx: 950, cy: 410, z: 1.4 }, cu: 1, gl: 1 },
+  ]},
+  { world: 2, dur: 13.4, lines: [
+    { who: 0, text: "……这是哪？", cam: { cx: 640, cy: 390, z: 1.0 } },
+    { who: 1, text: "三亚。你选的火星，我查了天气预报——替你改成这儿了。", cam: { cx: 950, cy: 410, z: 1.45 }, cu: 1 },
+    { who: 0, text: "所以你能改目的地，你早干嘛去了？！我冻了俩月！", cam: { cx: 700, cy: 400, z: 1.25 }, panic: 1 },
+    { who: 1, text: "你也没问啊。", cam: { cx: 950, cy: 410, z: 1.7 }, cu: 1,
+      pauseBefore: 2.0, pauseCam: { cx: 640, cy: 390, z: 1.0 }, pushTo: 1.1 },
+  ]},
+];
+function easeInCubic(u){ return u * u * u; }
+function easeOutCubic(u){ return 1 - Math.pow(1 - u, 3); }
+function easeOutBack(u){
+  const c1 = 1.70158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(u - 1, 3) + c1 * Math.pow(u - 1, 2);
+}
+
+// ---------- 时间轴（交互式：play → wait → travel → wipe → reveal） ----------
+let t = 0, lastTs = 0;
+const fired = new Set();
+function once(key, fn){
+  if (!fired.has(key)){ fired.add(key); fn(); }
+}
+
+// ---------- 合成音频 ----------
+let AC = null, master = null, sndOn = false, humG = null, nBuf = null;
+function ensureAC(){
+  if (!AC){
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    master = AC.createGain(); master.gain.value = 0.55; master.connect(AC.destination);
+  }
+  if (AC.state === "suspended") AC.resume();
+}
+function beep(f0, f1, d, type, vol){
+  if (!sndOn) return; ensureAC();
+  const t0 = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type || "sine";
+  o.frequency.setValueAtTime(f0, t0);
+  o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + d);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+  o.connect(g); g.connect(master);
+  o.start(t0); o.stop(t0 + d + 0.05);
+}
+function noiseBuf(){
+  if (nBuf) return nBuf;
+  nBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+  const d = nBuf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return nBuf;
+}
+function whooshS(){
+  if (!sndOn) return; ensureAC();
+  const t0 = AC.currentTime;
+  const src = AC.createBufferSource(); src.buffer = noiseBuf();
+  const bp = AC.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.1;
+  bp.frequency.setValueAtTime(2600, t0);
+  bp.frequency.exponentialRampToValueAtTime(240, t0 + 0.9);
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(0.4, t0 + 0.08);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.95);
+  src.connect(bp); bp.connect(g); g.connect(master);
+  src.start(t0); src.stop(t0 + 1);
+  beep(170, 48, 0.7, "sine", 0.4);
+}
+function fwumpS(){ beep(140, 55, 0.16, "sine", 0.45); }
+function glorpS(){ beep(240, 70, 0.35, "sine", 0.35); beep(120, 50, 0.42, "triangle", 0.25); }
+function blipS(){ beep(1250, 1180, 0.05, "square", 0.08); }
+function popS(i){ beep(480 + i * 55, 880 + i * 55, 0.09, "square", 0.1); }
+function humOn(){
+  if (!sndOn || humG) return; ensureAC();
+  humG = AC.createGain(); humG.gain.value = 0; humG.connect(master);
+  humG._o = [];
+  [52, 104.7].forEach(f => {
+    const o = AC.createOscillator(); o.frequency.value = f; o.type = "sine";
+    o.connect(humG); o.start(); humG._o.push(o);
+  });
+  humG.gain.linearRampToValueAtTime(0.05, AC.currentTime + 0.3);
+}
+function humOff(){
+  if (!humG) return;
+  const g = humG;
+  g.gain.linearRampToValueAtTime(0.0001, AC.currentTime + 0.2);
+  setTimeout(() => { try{ g._o.forEach(o => o.stop()); g.disconnect(); }catch(e){} }, 400);
+  humG = null;
+}
+const sndBtn = document.getElementById("snd");
+function toggleSnd(){
+  sndOn = !sndOn;
+  sndBtn.textContent = sndOn ? "🔊 声音" : "🔇 声音";
+  if (sndOn){ ensureAC(); blipS(); } else humOff();
+}
+sndBtn.addEventListener("click", toggleSnd);
+addEventListener("keydown", e => { if (e.key === "m" || e.key === "M") toggleSnd(); });
+
+/* ============ 交互：点击推进对白 + 彩蛋层 ============ */
+let shotIdx = 0, st = 0, phase = "play", travelT = 0, wipeT = 0, revealT = 0;
+let potatoPoke = 0, pearPoke = 0, antPoke = 0, xiaoyePoke = 0;
+let potatoGlorpT = -9;
+// 逐句对白状态机：pause（片头/冷场）→ typing（打字机）→ hold（等点说话人）→ 下一句
+let lineIdx = 0, linePhase = "pause", typeT = 0, holdT = 0, pauseT = 0, tagT = 0;
+let curLine = null, lastTypedN = 0;
+function startLine(){
+  curLine = SHOTS[shotIdx].lines[lineIdx] || null;
+  typeT = 0; holdT = 0; pauseT = 0; lastTypedN = 0;
+  linePhase = (curLine && curLine.pauseBefore) ? "pause" : "typing";
+  if (curLine && curLine.gl){ potatoGlorpT = t; once("glorp", glorpS); }
+}
+function advanceLine(){
+  lineIdx++;
+  if (lineIdx >= SHOTS[shotIdx].lines.length){ curLine = null; phase = "wait"; return; }
+  startLine();
+}
+const bubbles = [];
+function say(text, x, y){
+  bubbles.push({ text: text, x: x, y: y, t0: t });
+  if (bubbles.length > 3) bubbles.shift();
+}
+const tieziQuips = ["嘎哈呀，别戳我", "别扒拉我", "我搁这儿看门呢", "军大衣比你整个行李箱都贵", "冷啊？多抖会儿"];
+const xiaoyeQuips = ["阿嚏！！", "我、我不冷", "海南的海在等我"];
+let lastPoke = {};
+function poke(k, fn){
+  if (t - (lastPoke[k] || -9) > 0.9){ lastPoke[k] = t; fn(); }
+}
+function designPoint(ev){
+  // 屏幕坐标 → UI 空间 → 逆相机变换 → 设计坐标（所有热区都定义在设计空间）
+  const ox = (cw - W * fit) / 2, oy = (ch - H * fit) / 2;
+  const ux = (ev.clientX - ox) / fit;
+  const uy = (ev.clientY - oy) / fit;
+  return [(ux - W / 2) / camZ + camX, (uy - H / 2) / camZ + camY];
+}
+function startTravel(){
+  phase = "travel"; travelT = 0;
+  whooshS();
+}
+function switchShot(){
+  shotIdx = (shotIdx + 1) % SHOTS.length;
+  st = 0; tagT = 0; fired.clear();
+  travelT = wipeT = revealT = 0;
+  portalOpenCur = 0;
+  lineIdx = 0;
+  startLine();
+  phase = "reveal";
+}
+function wipeR(){
+  if (phase === "wipe") return 1650 * easeInCubic(Math.min(1, wipeT / 0.55));
+  if (phase === "reveal") return 1650 * (1 - easeOutCubic(Math.min(1, revealT / 0.5)));
+  return 0;
+}
+cv.addEventListener("pointerdown", ev => {
+  const p = designPoint(ev), px = p[0], py = p[1];
+  if (phase === "travel" || phase === "wipe" || phase === "reveal") return;
+  const inBox = (x0, x1, y0, y1) => px > x0 && px < x1 && py > y0 && py < y1;
+  // 推进优先：点当前说话的角色
+  const hitSpeaker = curLine && linePhase !== "pause" &&
+    ((curLine.who === 0 && inBox(600, 800, 320, 645)) ||
+     (curLine.who === 1 && inBox(835, 1075, 290, 645)));
+  if (hitSpeaker){
+    if (linePhase === "typing"){ typeT = 999; }                       // 补完整句
+    else if (linePhase === "hold" && holdT > 0.25){ advanceLine(); }  // 下一句
+    return;
+  }
+  if (linePhase === "pause"){ pauseT = 999; return; }                 // 跳过片头/冷场
+  // 冻梨（锅盖上的吉祥物）
+  if (px > 238 && px < 286 && py > 330 && py < 392){
+    poke("pear", () => { pearPoke = 1; beep(900, 1500, 0.12, "square", 0.15); });
+    return;
+  }
+  // 火星土豆
+  if (curWorld === 1 && px > 440 && px < 610 && py > 480 && py < 640){
+    poke("potato", () => { potatoPoke = 1; glorpS(); });
+    return;
+  }
+  // 小椰
+  if (px > 620 && px < 780 && py > 330 && py < 640){
+    poke("xiaoye", () => {
+      xiaoyePoke = 1;
+      say(xiaoyeQuips[Math.floor(Math.random() * xiaoyeQuips.length)], 700, 300);
+      beep(600, 180, 0.25, "square", 0.2);
+    });
+    return;
+  }
+  // 铁子
+  if (px > 850 && px < 1060 && py > 300 && py < 640){
+    poke("tiezi", () => {
+      say(tieziQuips[Math.floor(Math.random() * tieziQuips.length)], 950, 270);
+      beep(220, 180, 0.12, "triangle", 0.2);
+    });
+    return;
+  }
+  // 机器：等待期 = 出发；其他时期 = 逗它玩
+  if (px > 190 && px < 415 && py > 395 && py < 645){
+    if (phase === "wait"){ startTravel(); }
+    else poke("machine", () => { antPoke = 1; beep(1300, 1250, 0.15, "square", 0.15); });
+    return;
+  }
+});
+function drawBubbles(){
+  for (let k = bubbles.length - 1; k >= 0; k--){
+    const b = bubbles[k];
+    const age = t - b.t0;
+    if (age > 1.8){ bubbles.splice(k, 1); continue; }
+    const a = age < 0.15 ? age / 0.15 : (age > 1.5 ? (1.8 - age) / 0.3 : 1);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.font = "700 24px " + SUB_FONT;
+    ctx.textAlign = "center";
+    const bw = ctx.measureText(b.text).width + 34;
+    shape(boxPts(b.x - bw / 2, b.y - 26, bw, 46), { fill: "#fffdf2", w: 5, id: 700 + k, amp: 1 });
+    shape([[b.x - 10, b.y + 18], [b.x + 6, b.y + 18], [b.x - 4, b.y + 34]],
+      { fill: "#fffdf2", w: 4, id: 720 + k, amp: 1 });
+    ctx.fillStyle = LINE;
+    ctx.fillText(b.text, b.x, b.y + 6);
+    ctx.restore();
+  }
+}
+function drawPrompt(){
+  if (phase !== "wait") return;
+  const pulse = Math.sin(t * 4) * 0.5 + 0.5;
+  ctx.save();
+  ctx.globalAlpha = 0.75 + 0.25 * pulse;
+  shape(boxPts(140, 236, 330, 56), { fill: "rgba(20,16,24,0.72)", stroke: null, amp: 0 });
+  ctx.font = "700 30px " + SUB_FONT;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffe9a8";
+  ctx.fillText("点一下暖气片，出发 →", 305, 274);
+  ctx.restore();
+  const ay = 340 + pulse * 10;
+  shape([[295, ay], [325, ay], [310, ay + 26]], { fill: "#ffe9a8", w: 4, id: 800, amp: 1.5 });
+}
+// 台词停太久时，在说话角色头上弹提示
+function drawPromptChar(){
+  if (phase !== "play" || !curLine || linePhase !== "hold" || holdT < 3.5) return;
+  const sx = curLine.who === 0 ? 700 : 950;
+  const sy = curLine.who === 0 ? 250 : 235;
+  const pulse = Math.sin(t * 4) * 0.5 + 0.5;
+  ctx.save();
+  ctx.globalAlpha = 0.75 + 0.25 * pulse;
+  const label = "点「" + (curLine.who === 0 ? "小椰" : "铁子") + "」继续 ▸";
+  ctx.font = "700 26px " + SUB_FONT;
+  ctx.textAlign = "center";
+  const w = ctx.measureText(label).width + 30;
+  shape(boxPts(sx - w / 2, sy - 24, w, 46), { fill: "rgba(20,16,24,0.78)", stroke: null, amp: 0 });
+  ctx.fillStyle = "#ffe9a8";
+  ctx.fillText(label, sx, sy + 8);
+  ctx.restore();
+}
+
+/* ============ 传送门机器（暖气片 + 电饭锅 + 冻梨） ============ */
+let PCX = 300, PCY = 519, PR = 51.5;   // 传送门中心与底盘半径（portal 开启半径 ≈ PR*2.3）
+function drawMachine(){
+  const cx = 300, gy = 622, s = 1.17;
+  ctx.save();
+  ctx.translate(cx, gy); ctx.scale(s, s); ctx.translate(-cx, -gy);
+  const B = 500;
+  const body = boxPts(cx - 78, gy - 168, 156, 160);
+  shape(body, { fill: "#8f9aa8", w: 7, id: B + 1 });
+  innerShadow(body, shade("#8f9aa8", 0.78), 12, 15, B + 2);
+  for (let k = 0; k < 7; k++){
+    const fx = cx - 66 + k * 19;
+    shape(boxPts(fx, gy - 158, 13, 140),
+      { fill: k % 2 ? "#c98a4f" : "#a8b2bd", w: 4.5, id: B + 3 + k });
+  }
+  for (let k = 0; k < 4; k++)
+    shape(boxPts(cx - 70 + k * 38, gy - 26, 20, 16),
+      { fill: k % 2 ? "#e8c832" : "#3a3542", w: 4, id: B + 12 + k });
+  noodle(cx - 60, gy - 8, cx - 66, gy + 8, 0, B + 16, 6);
+  noodle(cx + 60, gy - 8, cx + 66, gy + 8, 0, B + 17, 6);
+  const pot = blob(cx + 6, gy - 192, 40, 24, B + 18, 14, 0.06);
+  shape(pot, { fill: "#e3e7ec", w: 6, id: B + 19 });
+  innerShadow(pot, shade("#e3e7ec", 0.8), 6, 8, B + 20);
+  shape(blob(cx + 6, gy - 208, 36, 10, B + 21, 12, 0.05), { fill: "#cfd6dd", w: 5, id: B + 22 });
+  shape(circlePts(cx + 6, gy - 216, 6, 8), { fill: "#e05252", w: 4, id: B + 23 });
+  noodle(cx + 34, gy - 214, cx + 72, gy - 262, 10, B + 24, 4.5);
+  const fast = (phase === "wait" || phase === "travel" || antPoke > 0);
+  shape(circlePts(cx + 76, gy - 266, 7, 8),
+    { fill: (Math.floor(t * (fast ? 8 : 2)) % 2) ? "#e05252" : "#7a3030", w: 4, id: B + 25 });
+  noodle(cx - 78, gy - 120, cx - 116, gy - 60, -18, B + 26, 4.5);
+  shape(blob(cx - 118, gy - 54, 9, 11, B + 27), { fill: "#4a4552", w: 4, id: B + 28 });
+  shape(circlePts(cx, gy - 88, 44, 16), { fill: "#2a2f38", w: 6, id: B + 29 });
+  noodle(cx - 26, gy - 114, cx + 26, gy - 62, 0, B + 30, 6);
+  noodle(cx + 26, gy - 114, cx - 26, gy - 62, 0, B + 31, 6);
+  // 冻梨（蹲在锅盖上的吉祥物，能被戳）
+  shape(blob(cx - 40 + pearPoke * Math.sin(t * 22) * 7, gy - 226, 13, 16, B + 32, 12, 0.08),
+    { fill: "#3a3f4a", w: 5, id: B + 33 });
+  if (boilStep === 0)
+    shape(circlePts(cx - 44, gy - 232, 2, 6), { fill: "#dfe8f0", stroke: null, amp: 0 });
+  shape(circlePts(cx - 40, gy - 229, 1.8, 6), { fill: EYE, stroke: null, amp: 0 });
+  ctx.restore();
+}
+
+/* ============ 传送门（唯一发光物） ============ */
+function drawPortal(op){
+  if (op <= 0.02) return;
+  const r = PR * 2.3 * op;
+  const seed = t * 24;
+  ctx.save();
+  ctx.globalAlpha = 0.16;
+  shape(circlePts(PCX, PCY, r + 26, 20), { fill: GLOW, stroke: null, amp: 2, seed: seed });
+  ctx.globalAlpha = 0.3;
+  shape(circlePts(PCX, PCY, r + 13, 20), { fill: GLOW, stroke: null, amp: 2, seed: seed });
+  ctx.restore();
+  shape(blob(PCX, PCY, r, r * (0.96 + 0.04 * Math.sin(t * 3)), 950, 22, 0.05, seed * 0.01),
+    { fill: "#1d3d55", w: 8, id: 951, seed: seed });
+  for (let arm = 0; arm < 2; arm++){
+    const pts = [];
+    const rot = t * 2.2 + arm * Math.PI;
+    for (let k = 0; k <= 26; k++){
+      const rr = 12 + (k / 26) * (r - 18);
+      const a = rot + (rr / r) * 4.2;
+      pts.push([PCX + Math.cos(a) * rr, PCY + Math.sin(a) * rr * 0.96]);
+    }
+    shape(pts, { stroke: GLOW, w: 8, close: false, amp: 2, id: 952 + arm, seed: seed });
+  }
+  shape(circlePts(PCX, PCY, 30, 14), { fill: "#e8fbff", w: 5, id: 955, seed: seed, amp: 1.2 });
+  for (let k = 0; k < 7; k++){
+    const a = t * 3.1 + k * 0.9;
+    const rr = r + 20 + Math.sin(t * 5 + k) * 6;
+    shape(circlePts(PCX + Math.cos(a) * rr, PCY + Math.sin(a) * rr * 0.7, 4, 8),
+      { fill: GLOW, w: 3, id: 956 + k, seed: seed, amp: 1 });
+  }
+  for (let k = 0; k < 3; k++){
+    const ph = (t * 0.5 + k * 0.37) % 1;
+    shape(blob(PCX + (k - 1) * r * 0.55, PCY + r * 0.9 + ph * 95, 7, 9 + ph * 7, 960 + k, 8, 0.15, seed * 0.7),
+      { fill: GLOW, w: 4, id: 960 + k, seed: seed, amp: 1.4 });
+  }
+}
+
+/* ============ 世界背景 ============ */
+function drawWorld(wi){
+  if (wi === 0) worldDorm();
+  else if (wi === 1) worldMars();
+  else worldSanya();
+}
+function band(col, y, h){ shape(boxPts(-2200, y, 6000, h), { fill: col, stroke: null, amp: 0 }); }
+function worldDorm(){
+  band("#3d4c6b", -1500, 2100);            // 冰蓝夜墙
+  band("#2a3450", 560, 900);               // 地板
+  noodle(-2200, 562, 3400, 562, 0, 101, 5);
+  shape(blob(300, 648, 130, 18, 102, 12, 0.1), { fill: "#4a3c50", stroke: null, amp: 1 }); // 暖色地光
+  // 窗户：雪夜楼群 + 冰花
+  shape(boxPts(360, 110, 300, 190), { fill: "#1d2536", w: 6, id: 103 });
+  shape(boxPts(368, 118, 284, 174), { fill: "#16203a", stroke: null, amp: 0 });
+  for (let k = 0; k < 20; k++)
+    shape(circlePts(378 + (k * 53) % 264, 128 + (k * 37) % 130, 1.6, 6),
+      { fill: "#dfe8f0", stroke: null, amp: 0 });
+  shape(boxPts(390, 230, 52, 62), { fill: "#232c44", w: 3.5, id: 104 });
+  shape(boxPts(452, 206, 62, 86), { fill: "#202840", w: 3.5, id: 105 });
+  shape(boxPts(524, 220, 48, 72), { fill: "#232c44", w: 3.5, id: 106 });
+  noodle(372, 220, 448, 220, -12, 107, 3.5);
+  noodle(470, 150, 640, 190, 20, 108, 3.5);
+  noodle(372, 276, 432, 276, 8, 109, 3);
+  noodle(510, 118, 510, 292, 0, 110, 4);
+  noodle(368, 205, 652, 205, 0, 111, 4);
+  // 上下铺（左）
+  noodle(50, 620, 50, 300, 0, 112, 6);
+  noodle(210, 620, 210, 300, 0, 113, 6);
+  noodle(46, 420, 214, 420, 0, 114, 5);
+  shape(boxPts(46, 408, 168, 14), { fill: "#4a3c50", w: 5, id: 115 });
+  const quilt = blob(130, 452, 66, 22, 116, 16, 0.09);
+  shape(quilt, { fill: "#6b7fa8", w: 6, id: 117 });
+  innerShadow(quilt, shade("#6b7fa8", 0.75), 8, 8, 118);
+  shape(blob(176, 442, 17, 11, 119, 10, 0.1), { fill: "#e8e2d4", w: 4, id: 120 });
+  shape(blob(92, 444, 15, 11, 121, 10, 0.12), { fill: "#e28585", w: 4, id: 122 });   // 暖水袋
+  // 海南海报
+  shape(boxPts(660, 150, 140, 96), { fill: "#e8dfc0", w: 4.5, id: 123 });
+  noodle(690, 216, 700, 180, 8, 124, 4);
+  noodle(700, 180, 682, 166, -8, 125, 3.5);
+  noodle(700, 180, 716, 162, 8, 126, 3.5);
+  noodle(700, 180, 724, 184, 6, 127, 3.5);
+  shape(boxPts(754, 196, 34, 36), { fill: "#4fae9c", w: 3.5, id: 128 });
+  // 行李箱（海口）+ 泡面桶
+  const bx = blob(470, 668, 36, 26, 129, 12, 0.05);
+  shape(bx, { fill: "#3d5a80", w: 5, id: 130 });
+  shape(boxPts(440, 662, 60, 13), { fill: shade("#3d5a80", 0.7), w: 4, id: 131 });
+  shape(boxPts(452, 648, 36, 16), { fill: "#e8dfc0", w: 3.5, id: 132 });
+  shape(blob(416, 610, 16, 19, 133, 10, 0.05), { fill: "#d94f5c", w: 4.5, id: 134 });
+  noodle(416, 592, 432, 578, 5, 135, 3.5);
+}
+function worldMars(){
+  band("#e08a4f", -1500, 1620);
+  band("#c75f35", 120, 480);
+  band("#a8482c", 560, 900);
+  noodle(-2200, 562, 3400, 562, 0, 203, 5);
+  // 小太阳 + 白环 + 地球蓝点 + 星
+  shape(circlePts(1080, 130, 34, 14), { fill: "#ffe9c9", w: 4, id: 201 });
+  shape(circlePts(1080, 130, 46, 16), { stroke: "#f4d9b8", w: 3, id: 202, amp: 1 });
+  shape(circlePts(140, 110, 8, 8), { fill: "#7fb8e8", stroke: null, amp: 0 });
+  for (let k = 0; k < 8; k++)
+    shape(circlePts(60 + k * 90, 40 + (k % 3) * 24, 1.5, 6), { fill: "#f4d9b8", stroke: null, amp: 0 });
+  // 陨石坑（机器砸的）
+  shape(blob(300, 656, 220, 34, 204, 16, 0.07), { fill: "#8f3a24", w: 5, id: 205 });
+  // 岩石
+  shape(blob(980, 592, 56, 30, 206, 12, 0.15), { fill: "#96402c", w: 5, id: 207 });
+  shape(blob(1090, 622, 34, 18, 208, 10, 0.15), { fill: "#7c3222", w: 4.5, id: 209 });
+  shape(blob(80, 640, 40, 22, 210, 12, 0.15), { fill: "#96402c", w: 5, id: 211 });
+  // 探测器残骸
+  shape(blob(1105, 512, 34, 24, 212, 12, 0.06), { fill: "#c9a85c", w: 5, id: 213 });
+  noodle(1092, 530, 1080, 560, -4, 214, 4);
+  noodle(1118, 530, 1130, 560, 4, 215, 4);
+  noodle(1128, 494, 1114, 462, -10, 216, 3.5);
+  // 土豆洞 + 土堆
+  shape(blob(420, 692, 58, 15, 217, 12, 0.1), { fill: "#5c2418", w: 4.5, id: 218 });
+  shape(blob(462, 680, 30, 12, 219, 10, 0.15), { fill: "#7c3222", w: 4, id: 220 });
+  // 岩石上的暖水袋（带创可贴——被啃过）
+  shape(blob(640, 580, 36, 20, 221, 12, 0.1), { fill: "#96402c", w: 5, id: 222 });
+  shape(blob(640, 552, 27, 18, 223, 10, 0.1), { fill: "#c0392b", w: 4.5, id: 224 });
+  shape(boxPts(634, 546, 15, 10), { fill: "#e8d8b8", w: 2.5, id: 225, amp: 0.8 });
+}
+function worldSanya(){
+  band("#f7e9c9", -1500, 1900);            // 米黄天
+  band("#4fae9c", 380, 130);               // 海
+  band("#f0dcae", 500, 900);               // 沙滩
+  noodle(-2200, 502, 3400, 502, 0, 313, 4);
+  // 大太阳（对比火星小太阳）
+  shape(circlePts(1080, 150, 60, 16), { fill: "#f7c948", w: 5, id: 301 });
+  shape(circlePts(1080, 150, 78, 20), { stroke: "#f2e0a8", w: 3, id: 302, amp: 1 });
+  shape(blob(300, 120, 56, 18, 303, 12, 0.12), { fill: "#fffdf2", w: 4, id: 304 });
+  shape(blob(680, 88, 40, 14, 305, 10, 0.12), { fill: "#fffdf2", w: 4, id: 306 });
+  // 浪线
+  noodle(-2200, 440, 3400, 440, 20, 307, 3.5);
+  noodle(-2200, 472, 3400, 468, -20, 308, 3);
+  // 远处家楼
+  shape(boxPts(60, 300, 66, 112), { fill: "#d9c9a0", w: 3.5, id: 309 });
+  shape(boxPts(136, 320, 48, 92), { fill: "#cfc0a0", w: 3.5, id: 310 });
+  for (let k = 0; k < 8; k++)
+    shape(boxPts(70 + (k % 3) * 19, 312 + Math.floor(k / 3) * 26, 9, 12),
+      { fill: "#8fa8b8", stroke: null, amp: 0 });
+  // 海鸥
+  noodle(500, 180, 522, 166, 8, 311, 3);
+  noodle(522, 166, 544, 180, -8, 312, 3);
+  // 椰子树 ×2
+  drawPalm(170, 640, 1.5, 320);
+  drawPalm(300, 660, 1.1, 340);
+  // 沙滩椅（红白条纹）
+  noodle(1080, 688, 1092, 610, 8, 360, 5);
+  noodle(1176, 688, 1170, 616, -5, 361, 5);
+  shape(boxPts(1074, 616, 110, 12), { fill: "#fffdf2", w: 4, id: 362 });
+  for (let k = 0; k < 6; k++)
+    shape(boxPts(1080 + k * 18, 616, 9, 12), { fill: "#d94f5c", stroke: null, amp: 0 });
+  shape(boxPts(1120, 590, 74, 11), { fill: "#fffdf2", w: 4, id: 363 });
+  for (let k = 0; k < 4; k++)
+    shape(boxPts(1126 + k * 18, 590, 9, 11), { fill: "#d94f5c", stroke: null, amp: 0 });
+  // 人字拖
+  shape(blob(1000, 694, 17, 7, 364, 8, 0.1), { fill: "#4f8fd9", w: 3.5, id: 365 });
+  noodle(1000, 692, 994, 684, 3, 366, 2.5);
+  shape(blob(1036, 694, 17, 7, 367, 8, 0.1), { fill: "#4f8fd9", w: 3.5, id: 368 });
+  noodle(1036, 692, 1030, 684, 3, 369, 2.5);
+}
+function drawPalm(x, gy, s, B){
+  ctx.save();
+  ctx.translate(x, gy); ctx.scale(s, s); ctx.translate(-x, -gy);
+  const sway = Math.sin(t * 1.2 + B) * 4;
+  noodle(x, gy - 4, x + 18 + sway, gy - 110, 14, B + 1, 8);
+  const tx = x + 18 + sway, ty = gy - 112;
+  const fr = [[-46, 6, -20], [-34, -14, -14], [0, -22, 0], [34, -12, 14], [46, 8, 20]];
+  for (let k = 0; k < fr.length; k++)
+    noodle(tx, ty, tx + fr[k][0], ty + fr[k][1], fr[k][2], B + 2 + k, 6);
+  shape(circlePts(tx - 10, ty + 6, 7, 8), { fill: "#8a6f4d", w: 4, id: B + 8 });
+  shape(circlePts(tx + 4, ty + 8, 7, 8), { fill: "#8a6f4d", w: 4, id: B + 9 });
+  shape(circlePts(tx - 3, ty + 14, 6, 8), { fill: "#7a5f3d", w: 4, id: B + 10 });
+  ctx.restore();
+}
+
+/* ============ 角色 A：小椰（海南学生 · 紧张担当） ============ */
+function breathPuff(x, y, tt, id){
+  const ph = (tt * 0.9) % 1;
+  if (ph > 0.75) return;
+  ctx.save();
+  ctx.globalAlpha = 0.75 * (1 - ph);
+  shape(blob(x + ph * 26, y - ph * 8, 5 + ph * 13, 4 + ph * 9, id, 10, 0.2),
+    { fill: "#f4f0ff", w: 4, id: id });
+  ctx.restore();
+}
+function drawXiaoye(local, talking, beat){
+  const cx = 700, gy = 622;
+  const tk = Math.floor(local * 12) / 12;
+  const sq = local < 0.55 ? 1 - 0.22 * Math.cos(local * 14) * Math.exp(-local * 7) : 1;
+  const active = beat && (linePhase === "typing" || linePhase === "hold");
+  const panic = beat && beat.panic && active ? Math.min(1, (typeT + holdT) / 1.5) : 0;
+  const hyped = beat && beat.hyped && active;
+  const amp = 2 + panic * 4 + xiaoyePoke * 5;
+  const jx = (hsh(Math.floor(local * 12) * 91.7) * 2 - 1) * amp * (panic > 0 || hyped ? 1 : 0.3);
+  const jy = (hsh(Math.floor(local * 12) * 77.3) * 2 - 1) * amp * 0.6 * (panic > 0 || hyped ? 1 : 0.3);
+  const bounce = hyped ? -Math.abs(Math.sin(t * 6)) * 12 : 0;
+  const frozen = curWorld === 2 ? false : true;      // 三亚化冻
+  curSkin = (curWorld < 2 && panic < 0.4) ? "#ecd4da" : SKIN;
+  const shirt = curWorld === 2 ? "#4f8fd9" : "#d94f5c";
+  ctx.save();
+  ctx.translate(cx, gy); ctx.scale(1 / Math.sqrt(sq), sq); ctx.translate(-cx, -gy);
+  ctx.translate(jx, jy + bounce);
+  // 人字拖 + 光腿 + 冻红膝盖
+  shape(blob(cx - 16, gy - 6, 17, 6, 601, 10, 0.1), { fill: "#e0b64f", w: 5, id: 602 });
+  noodle(cx - 16, gy - 8, cx - 22, gy - 12, 3, 603, 4);
+  shape(blob(cx + 16, gy - 6, 17, 6, 604, 10, 0.1), { fill: "#e0b64f", w: 5, id: 605 });
+  noodle(cx + 16, gy - 8, cx + 10, gy - 12, -3, 606, 4);
+  noodle(cx - 14, gy - 108, cx - 16, gy - 10, -2, 607, 11);
+  noodle(cx + 14, gy - 108, cx + 16, gy - 10, 2, 608, 11);
+  if (curWorld < 2){
+    shape(circlePts(cx - 15, gy - 62, 6.5, 8), { fill: "#e28585", w: 4, id: 609, amp: 1 });
+    shape(circlePts(cx + 15, gy - 62, 6.5, 8), { fill: "#e28585", w: 4, id: 610, amp: 1 });
+  }
+  // 花衬衫（下摆打结）+ 小花
+  const body = blob(cx, gy - 158, 47, 72, 611, 16, 0.06);
+  shape(body, { fill: shirt, w: 7, id: 612 });
+  innerShadow(body, shade(shirt, 0.78), 10, 13, 613);
+  shape(boxPts(cx - 34, gy - 96, 68, 14), { fill: shade(shirt, 0.6), w: 5, id: 614 });
+  shape(circlePts(cx, gy - 92, 8, 8), { fill: shade(shirt, 1.25), w: 4, id: 615 });
+  const fl = [[-24, -170], [12, -186], [26, -152], [-8, -140], [-30, -196]];
+  for (let k = 0; k < fl.length; k++){
+    const fx = cx + fl[k][0], fy = gy + fl[k][1];
+    for (let p = 0; p < 5; p++){
+      const a = p / 5 * Math.PI * 2 + k;
+      shape(circlePts(fx + Math.cos(a) * 5, fy + Math.sin(a) * 5, 3, 8),
+        { fill: "#fff3d6", w: 2.5, id: 620 + k * 5 + p, amp: 0.8 });
+    }
+    shape(circlePts(fx, fy, 2.5, 8), { fill: "#e8b23c", stroke: null, amp: 0 });
+  }
+  // 手臂：来劲张开 / 平时抱自己
+  if (hyped){
+    noodle(cx - 40, gy - 196, cx - 74, gy - 236 + Math.sin(t * 8) * 6, -18, 650, 8);
+    noodle(cx + 40, gy - 196, cx + 74, gy - 236 - Math.sin(t * 8) * 6, 18, 651, 8);
+    shape(circlePts(cx - 76, gy - 240, 10, 8), { fill: curSkin, w: 5, id: 652 });
+    shape(circlePts(cx + 76, gy - 240, 10, 8), { fill: curSkin, w: 5, id: 653 });
+  } else {
+    noodle(cx - 40, gy - 196, cx - 8, gy - 158, -22, 650, 8);
+    noodle(cx + 40, gy - 196, cx + 8, gy - 154, 22, 651, 8);
+    shape(circlePts(cx - 6, gy - 156, 10, 8), { fill: curSkin, w: 5, id: 652 });
+    shape(circlePts(cx + 10, gy - 152, 10, 8), { fill: curSkin, w: 5, id: 653 });
+  }
+  // 头
+  const hy = gy - 268;
+  const head = blob(cx, hy, 41, 40, 660, 18, 0.04);
+  shape(head, { fill: curSkin, w: 7, id: 661 });
+  innerShadow(head, shade(curSkin, 0.86), 7, 9, 662);
+  // 齐刘海
+  shape(blob(cx, hy - 22, 42, 26, 663, 14, 0.05), { fill: LINE, w: 6, id: 664 });
+  const fr = [];
+  for (let k = 0; k <= 6; k++) fr.push([cx - 36 + k * 12, hy - 8 + (k % 2) * 5]);
+  shape(fr, { stroke: LINE, w: 6, close: false, id: 665 });
+  // 腮红
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  shape(circlePts(cx - 26, hy + 10, 6, 8), { fill: "#e28585", stroke: null, amp: 0 });
+  shape(circlePts(cx + 26, hy + 10, 6, 8), { fill: "#e28585", stroke: null, amp: 0 });
+  ctx.restore();
+  // 大焦虑眼 + 颤瞳
+  const tr = (hsh(Math.floor(local * 12) * 55.1) * 2 - 1) * 0.25;
+  const lid = frozen && panic < 0.2 ? 0.3 : 0.12;
+  const look = talking.who === 1 && talking.on ? 0.5 : Math.sin(t * 0.4) * 0.4;
+  eyeDraw(cx - 15, hy + 4, 14, tr + look * 0.2, 0.1 + panic * 0.25, Math.min(1, lid + blinkF(t, 1) * 0.88), 680);
+  eyeDraw(cx + 15, hy + 4, 14, tr + look * 0.2, 0.1 + panic * 0.25, Math.min(1, lid + blinkF(t, 1) * 0.88), 681);
+  if (hyped){
+    noodle(cx - 28, hy - 14, cx - 6, hy - 20, -3, 682, 6);
+    noodle(cx + 6, hy - 20, cx + 28, hy - 14, 3, 683, 6);
+  } else {
+    noodle(cx - 28, hy - 16, cx - 6, hy - 10, -3, 682, 6);
+    noodle(cx + 6, hy - 10, cx + 28, hy - 16, 3, 683, 6);
+  }
+  // 嘴
+  const mo = talking.on
+    ? 0.3 + 0.7 * noise2(tk * 0.9, 7.7) : (hyped ? 0.35 : 0.1);
+  mouthDraw(cx, hy + 26, 24 + panic * 6, mo, panic > 0.5 ? -0.1 : 0.12, 684);
+  // 汗滴（恐慌）+ 哈气（冷世界）
+  if (panic > 0.3 && hsh(Math.floor(local * 12) * 13.1) > 0.4)
+    shape(blob(cx + 30, hy - 14, 5, 7, 686, 8, 0.2), { fill: "#bfe8ff", w: 4, id: 687 });
+  if (curWorld < 2 && !talking.on) breathPuff(cx + 8, hy + 30, t + 0.3, 685);
+  ctx.restore();
+}
+
+/* ============ 角色 B：铁子（东北舍友 · 冷面担当） ============ */
+function drawTiezi(local, talking, beat){
+  const cx = 950, gy = 622;
+  const sq = local < 0.55 ? 1 - 0.22 * Math.cos(local * 14) * Math.exp(-local * 7) : 1;
+  curSkin = SKIN;
+  const coat = curWorld === 2 ? "#5c6b46" : "#5c6b46";
+  const smile = beat && beat.cu && beat.text.indexOf("将就") >= 0 &&
+    (linePhase === "typing" || linePhase === "hold");
+  ctx.save();
+  ctx.translate(cx, gy); ctx.scale(1 / Math.sqrt(sq), sq); ctx.translate(-cx, -gy);
+  const rock = Math.sin(t * 0.9) * 2;
+  // 棉鞋
+  shape(blob(cx - 20, gy - 8, 22, 10, 701, 10, 0.1), { fill: "#3a3542", w: 6, id: 702 });
+  shape(blob(cx + 20, gy - 8, 22, 10, 703, 10, 0.1), { fill: "#3a3542", w: 6, id: 704 });
+  // 军大衣
+  const body = blob(cx + rock, gy - 152, 68, 118, 705, 18, 0.05);
+  shape(body, { fill: coat, w: 7, id: 706 });
+  innerShadow(body, shade(coat, 0.76), 15, 19, 707);
+  shape(blob(cx + rock, gy - 250, 54, 20, 708, 14, 0.16), { fill: shade(coat, 1.5), w: 6, id: 709 });
+  shape(boxPts(cx + rock - 56, gy - 176, 112, 16), { fill: shade(coat, 0.6), w: 5, id: 710 });
+  shape(boxPts(cx + rock - 10, gy - 180, 20, 24), { fill: "#c8a94f", w: 4, id: 711 });
+  shape(boxPts(cx + rock - 50, gy - 140, 34, 30), { fill: shade(coat, 0.8), w: 4, id: 712 });
+  shape(boxPts(cx + rock + 16, gy - 140, 34, 30), { fill: shade(coat, 0.8), w: 4, id: 713 });
+  // 揣袖子的手
+  noodle(cx + rock - 56, gy - 226, cx + rock - 8, gy - 158, -20, 714, 12);
+  noodle(cx + rock + 56, gy - 226, cx + rock + 10, gy - 154, 20, 715, 12);
+  shape(circlePts(cx + rock - 6, gy - 156, 13, 8), { fill: shade(coat, 0.7), w: 5, id: 716 });
+  shape(circlePts(cx + rock + 12, gy - 152, 13, 8), { fill: shade(coat, 0.7), w: 5, id: 717 });
+  // 头（方下颌 + 胡茬）
+  const hy = gy - 296;
+  const head = blob(cx + rock, hy, 42, 37, 720, 18, 0.04);
+  shape(head, { fill: curSkin, w: 7, id: 721 });
+  innerShadow(head, shade(curSkin, 0.86), 8, 10, 722);
+  for (let k = 0; k < 7; k++)
+    shape(circlePts(cx + rock - 22 + (k % 4) * 14, hy + 20 + Math.floor(k / 4) * 9, 1.8, 6),
+      { fill: "#5a4a3a", stroke: null, amp: 0 });
+  // 雷锋帽
+  shape(blob(cx + rock, hy - 24, 46, 28, 730, 14, 0.05), { fill: "#6b5138", w: 6, id: 731 });
+  shape(blob(cx + rock - 44, hy + 6, 12, 20, 732, 10, 0.1), { fill: "#6b5138", w: 5, id: 733 });
+  shape(blob(cx + rock + 44, hy + 6, 12, 20, 734, 10, 0.1), { fill: "#6b5138", w: 5, id: 735 });
+  shape(blob(cx + rock, hy - 40, 40, 12, 736, 12, 0.2), { fill: "#8a6f4d", w: 5, id: 737 });
+  // 死鱼眼
+  const lid = smile ? 0.3 : 0.45;
+  const look = talking.who === 0 && talking.on ? -0.4 : 0.05;
+  eyeDraw(cx + rock - 15, hy + 2, 12.5, look, 0, lid + blinkF(t, 2) * 0.55, 750);
+  eyeDraw(cx + rock + 15, hy + 2, 12.5, look, 0, lid + blinkF(t, 2) * 0.55, 751);
+  // 一字眉 / 冷笑挑眉
+  if (smile){
+    noodle(cx + rock - 27, hy - 16, cx + rock - 4, hy - 14, 0, 752, 8);
+    noodle(cx + rock + 6, hy - 20, cx + rock + 28, hy - 14, 2, 753, 8);
+  } else {
+    noodle(cx + rock - 27, hy - 15, cx + rock + 27, hy - 15, 0, 752, 8);
+  }
+  // 嘴
+  const tk = Math.floor(local * 12) / 12;
+  const mo = talking.who === 1 && talking.on ? 0.18 + 0.5 * noise2(tk * 0.7, 3.3) : 0.04;
+  mouthDraw(cx + rock, hy + 24, 30, mo, smile ? 0.26 : 0.02, 754);
+  if (curWorld < 2 && !talking.on) breathPuff(cx + rock + 12, hy + 28, t, 755);
+  ctx.restore();
+}
+
+/* ============ 火星土豆（恶心又可爱 · 非语言） ============ */
+function drawPotato(){
+  const cx = 520, gy = 622, s = 1.3;
+  const gl = Math.max(0, Math.min(1, 1 - (t - potatoGlorpT) * 1.8));
+  ctx.save();
+  ctx.translate(cx, gy); ctx.scale(s, s); ctx.translate(-cx, -gy);
+  const bob = Math.sin(t * 2) * 5 + gl * Math.sin(t * 20) * 6;
+  const cy = gy - 52 + bob;
+  const body = blob(cx, cy, 52, 38, 801, 16, 0.09);
+  shape(body, { fill: "#a9793f", w: 7, id: 802 });
+  innerShadow(body, shade("#a9793f", 0.75), 9, 12, 803);
+  for (let k = 0; k < 6; k++)
+    shape(circlePts(cx - 34 + (k % 3) * 26, cy - 10 + Math.floor(k / 3) * 18, 2.6, 6),
+      { fill: "#7c5426", stroke: null, amp: 0 });
+  for (let k = 0; k < 4; k++)
+    shape(circlePts(cx - 40 + k * 27, cy + 26, 3, 6),
+      { fill: "#c96b3f", w: 3, id: 810 + k, amp: 0.8 });
+  // 芽（被戳 / glorp 时狂摆）
+  const wag = (gl > 0.1 || potatoPoke > 0) ? Math.sin(t * 12) * (6 + 6 * Math.max(gl, potatoPoke)) : Math.sin(t * 1.5) * 2;
+  noodle(cx, cy - 36, cx + wag, cy - 66, 6, 820, 5);
+  shape(blob(cx + wag - 7, cy - 68, 9, 5, 821, 8, 0.15), { fill: "#7fae4a", w: 4, id: 822 });
+  shape(blob(cx + wag + 8, cy - 62, 8, 4.5, 823, 8, 0.15), { fill: "#7fae4a", w: 4, id: 824 });
+  // 眼 + 嘴
+  eyeDraw(cx - 12, cy - 4, 7, Math.sin(t * 0.8) * 0.3, 0, 0.1 + blinkF(t, 3) * 0.9, 830);
+  eyeDraw(cx + 12, cy - 4, 7, Math.sin(t * 0.8) * 0.3, 0, 0.1 + blinkF(t, 3) * 0.9, 831);
+  mouthDraw(cx, cy + 14, 14, Math.max(gl * 0.5, potatoPoke * 0.6) + 0.05, 0, 832);
+  noodle(cx - 16, cy + 34, cx - 18, gy - 6, -2, 833, 7);
+  noodle(cx + 16, cy + 34, cx + 18, gy - 6, 2, 834, 7);
+  ctx.restore();
+}
+
+/* ============ 字幕 / 标签 / 片头 ============ */
+const SUB_FONT = '"Baloo 2","PingFang SC","Microsoft YaHei",sans-serif';
+const WHO_COL = ["#f2a03d", "#7fa8c9"];    // 小椰 / 铁子
+function wrapText(text, maxw){
+  ctx.font = "800 50px " + SUB_FONT;
+  if (ctx.measureText(text).width <= maxw) return [text];
+  const lines = []; let cur = "";
+  for (const ch of text){
+    if (ctx.measureText(cur + ch).width > maxw && cur){ lines.push(cur); cur = ch; }
+    else cur += ch;
+  }
+  if (cur) lines.push(cur);
+  return lines.slice(0, 2);
+}
+function outlinedText(txt, x, y, size, alpha){
+  ctx.globalAlpha = alpha;
+  ctx.font = "800 " + size + "px " + SUB_FONT;
+  ctx.textAlign = "center";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = size * 0.2;
+  ctx.strokeStyle = LINE;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(txt, x, y);
+  ctx.globalAlpha = 1;
+}
+function drawSubs(){
+  if (!curLine || linePhase === "pause") return;
+  const n = Math.min(curLine.text.length, Math.floor(typeT / 0.045));
+  const txt = curLine.text.slice(0, n);
+  if (!txt) return;
+  const lines = wrapText(txt, 1150);
+  const size = lines.length > 1 && ctx.measureText(lines[0]).width > 1080 ? 44 : 50;
+  const y0 = H - 58;
+  lines.forEach((ln, li) => outlinedText(ln, 640, y0 - (lines.length - 1 - li) * 60, size, 1));
+  // 打字光标
+  if (linePhase === "typing" && Math.floor(t * 6) % 2){
+    const lastW = ctx.measureText(lines[lines.length - 1]).width;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(640 + lastW / 2 + 10, y0 - (lines.length - 1) * 60 - 40, 10, 42);
+  }
+  // 说话人胶囊
+  const tk = Math.floor(t * 12);
+  const px = 640 - ctx.measureText(lines[0]).width / 2 - 44;
+  const py = y0 - (lines.length - 1) * 60 - 36 + (hsh(tk * 3.1) * 2 - 1) * 1.5;
+  shape(blob(px, py, 26, 20, 300 + curLine.who, 10, 0.06), { fill: WHO_COL[curLine.who], w: 5, id: 310 + curLine.who });
+}
+function drawTag(i){
+  const wd = WORLDS[i];
+  const nch = Math.min(wd.tag.length, Math.floor(tagT / 0.045));
+  if (tagT > 0.1 && nch > 0){
+    if (!drawTag.b || drawTag.b !== i){ drawTag.b = i; once("tag" + i, blipS); }
+    ctx.font = '30px "VT323",monospace';
+    ctx.textAlign = "left";
+    ctx.fillStyle = wd.tagCol;
+    ctx.globalAlpha = 0.92;
+    ctx.fillText(wd.tag.slice(0, nch), 34, 56);
+    if (Math.floor(t * 2.5) % 2) ctx.fillRect(40 + ctx.measureText(wd.tag.slice(0, nch)).width, 34, 12, 22);
+    ctx.globalAlpha = 1;
+  }
+}
+function drawTitle(x){
+  if (x > 2.6) return;
+  const title = "火星比东北冷";
+  ctx.save();
+  ctx.globalAlpha = x > 2.1 ? Math.max(0, 1 - (x - 2.1) / 0.5) : 1;
+  shape(boxPts(120, 218, 1040, 150), { fill: "rgba(20,16,24,0.55)", stroke: null, amp: 0 });
+  ctx.font = "900 100px " + SUB_FONT;
+  ctx.textAlign = "center";
+  const total = title.length;
+  for (let k = 0; k < total; k++){
+    const p = (x * 12 - k * 2) / 6;
+    if (p <= 0) continue;
+    once("pop" + k, () => popS(k));
+    const s = Math.min(1, easeOutBack(Math.min(1, p)));
+    ctx.save();
+    ctx.translate(640, 296);
+    ctx.rotate((hsh(k * 5.3) * 2 - 1) * 0.05);
+    ctx.scale(s, s);
+    ctx.translate(-640, -296);
+    const lx = 640 + (k - (total - 1) / 2) * 118;
+    ctx.globalAlpha *= Math.min(1, p * 2);
+    ctx.lineJoin = "round"; ctx.lineWidth = 14; ctx.strokeStyle = LINE;
+    ctx.strokeText(title[k], lx, 316);
+    ctx.fillStyle = "#fffdf2";
+    ctx.fillText(title[k], lx, 316);
+    ctx.restore();
+  }
+  ctx.globalAlpha = x > 2.1 ? Math.max(0, 1 - (x - 2.1) / 0.5) : 1;
+  ctx.font = "700 26px " + SUB_FONT;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#cdbfe0";
+  ctx.fillText("一 个 海 南 人 的 越 冬 计 划", 640, 404);
+  ctx.restore();
+}
+
+/* ============ 主循环 ============ */
+let curWorld = 0, portalOpenCur = 0, lastBeatKey = "", camBeat = null;
+function render(){
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#141018";
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  uiT();
+  boilStep = Math.floor(t * 12) % 3;
+
+  const i = shotIdx, local = st;
+  curWorld = SHOTS[i].world;
+
+  // 相机：跟随当前台词的镜头硬切；pause 镜头可慢推（冷场/片头）
+  if (phase === "play" && curLine){
+    if (linePhase === "pause" && curLine.pauseCam){
+      camX = curLine.pauseCam.cx; camY = curLine.pauseCam.cy;
+      const z1 = curLine.pauseCam.z, z2 = curLine.pushTo || curLine.pauseCam.z;
+      camZ = z1 + (z2 - z1) * Math.min(1, pauseT / curLine.pauseBefore);
+    } else {
+      camX = curLine.cam.cx; camY = curLine.cam.cy; camZ = curLine.cam.z;
+    }
+  } else { camX = 640; camY = 390; camZ = 1; }
+  const tk = Math.floor(local * 12);
+  shakeX = shakeY = 0;
+  if (curLine && curLine.panic && (linePhase === "typing" || linePhase === "hold")){
+    const pu = Math.min(1, (typeT + holdT) / 1.5);
+    shakeX = (hsh(tk * 57.3) * 2 - 1) * pu * 4;
+    shakeY = (hsh(tk * 31.9) * 2 - 1) * pu * 3;
+  }
+  const wr = wipeR();
+  if (wr > 0){
+    if (phase === "reveal"){ const u = 1 - wr / 1650; camZ = 1 + 0.3 * u; camX = 640; camY = 390; }
+    else { camZ = 1 + 0.3 * Math.min(1, wipeT / 0.55); camX = 300; camY = 519; }
+  } else if (phase === "travel"){
+    camX = 300; camY = 519; camZ = 1 + 0.25 * Math.min(1, travelT / 1.0);
+  }
+
+  // 说话状态 & 音效
+  const talking = { who: -1, on: false };
+  if (curLine && linePhase === "typing"){ talking.who = curLine.who; talking.on = true; }
+  if (local > 0.5 && wr === 0) once("fw" + i, fwumpS);
+  if (phase === "travel") portalOpenCur = Math.min(1.12, easeOutBack(Math.min(1, travelT / 0.35)));
+  else if (phase === "wipe") portalOpenCur = 1;
+  else portalOpenCur = Math.max(0, portalOpenCur - 0.06);
+  if (portalOpenCur > 0.5) humOn(); else humOff();
+
+  // 场景
+  drawWorld(i);
+  drawMachine();
+  drawPortal(portalOpenCur);
+  if (i === 1) drawPotato();
+  drawXiaoye(local, talking, curLine);
+  drawTiezi(local, talking, curLine);
+
+  // 传送门开着时的整场色罩
+  if (portalOpenCur > 0.05){
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    shape(boxPts(-2200, -1500, 6000, 3200), { fill: GLOW, stroke: null, amp: 0 });
+    ctx.restore();
+  }
+
+  // 旋涡转场
+  if (wr > 0){
+    const R = Math.max(wr, 10) / fit * 0.9;
+    shape(blob(PCX, PCY, R, R, 400, 30, 0.045, t * 2), { fill: GLOW, w: 8, id: 401, amp: 2.4 });
+    for (let k = 0; k < 3; k++){
+      const a = t * 3 + k * 2.1;
+      shape([ [PCX, PCY],
+              [PCX + Math.cos(a) * R * 0.5, PCY + Math.sin(a) * R * 0.5],
+              [PCX + Math.cos(a + 0.5) * R * 0.85, PCY + Math.sin(a + 0.5) * R * 0.85] ],
+        { stroke: "#1d3d55", w: 14, close: false, amp: 3, id: 402 + k });
+    }
+  }
+
+  // UI 层
+  drawTag(i);
+  if (wr < 50) drawSubs();
+  if (i === 0) drawTitle(st);
+  drawPrompt();
+  drawPromptChar();
+  drawBubbles();
+}
+
+function frame(ts){
+  if (!lastTs) lastTs = ts;
+  let dt = Math.min((ts - lastTs) / 1000, 0.05); lastTs = ts;
+  t += dt;
+  // 彩蛋效果衰减
+  potatoPoke = Math.max(0, potatoPoke - dt * 1.6);
+  pearPoke = Math.max(0, pearPoke - dt * 1.4);
+  antPoke = Math.max(0, antPoke - dt * 1.2);
+  xiaoyePoke = Math.max(0, xiaoyePoke - dt * 1.6);
+  // 时间轴状态机：play → wait →（点机器）travel → wipe → reveal → play
+  if (phase === "play"){
+    st += dt; tagT += dt;
+    // 逐句对白：pause → typing（打字机）→ hold（等点说话人，10s 超时自动）
+    if (linePhase === "pause"){
+      pauseT += dt;
+      if (pauseT >= (curLine ? curLine.pauseBefore : 0)){ linePhase = "typing"; typeT = 0; }
+    } else if (linePhase === "typing"){
+      typeT += dt;
+      const n = curLine ? curLine.text.length : 0;
+      const ci = Math.min(n, Math.floor(typeT / 0.045));
+      if (ci !== lastTypedN){ if (ci % 2 === 0) blipS(); lastTypedN = ci; }
+      if (typeT >= n * 0.045 + 0.25){ linePhase = "hold"; holdT = 0; }
+    } else if (linePhase === "hold"){
+      holdT += dt;
+      if (holdT > 10) advanceLine();
+    }
+  } else if (phase === "travel"){
+    travelT += dt;
+    if (travelT >= 1.0){ phase = "wipe"; wipeT = 0; }
+  } else if (phase === "wipe"){
+    wipeT += dt;
+    if (wipeT >= 0.55) switchShot();
+  } else if (phase === "reveal"){
+    revealT += dt;
+    if (revealT >= 0.5) phase = "play";
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+startLine();                       // 初始化第一句（片头 pause 期间播字卡）
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
